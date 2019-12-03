@@ -1,0 +1,5 @@
+# NS datadump compressed xml files
+*.xml.gz
+
+# Local cookie for checking when datadump was downloaded
+cookie.json
