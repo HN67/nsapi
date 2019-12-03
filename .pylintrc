@@ -1,0 +1,10 @@
+# Standard HN67 pylintrc
+[Master]
+
+# Allow these C extensions to be loaded
+extension-pkg-whitelist=lxml
+
+[Messages Control]
+
+# Disable certain rules
+disable=invalid-name
