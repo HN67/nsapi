@@ -3,12 +3,9 @@
 # Import logging
 import logging
 
-# Import requests and lxml
-import requests
-from lxml import etree
-
 # Import nsapi
 import nsapi
+from nsapi import NationStandard as Nation
 
 # Set logging level
 level = logging.INFO
@@ -18,38 +15,39 @@ logger = logging.getLogger()
 # Change nsapi logging level
 nsapi.logger.setLevel(level=level)
 
+# Setup API
+API = nsapi.NSRequester("HN67 API Reader")
+
 # Set target nation to check against
 target = "kuriko"
 
 # Pull target endorsement list
-# Make page request and parse with bs4
-endorsersRequest = requests.get(
-    "https://www.nationstates.net/cgi-bin/api.cgi?"
-    +f"nation={target}&q=endorsements"
-)
-# Should return Nation Element
-endorsersXML = etree.fromstring(endorsersRequest.text)
-# Parse XML into endorser list
-# Expected format is <Nation><Endorsements>nation,nation2,nation3
-# Access endorsement tag using [0], and content using .text, and then split on ,
-# Creates set of names
-endorsers = set(endorsersXML[0].text.split(","))
+endorsers = set(API.nation_shard_text(target, "ENDORSEMENTS").split(","))
 
 # Load downloaded nation file
-nationsXML = etree.parse("nations.xml.gz").getroot()
+nationsXML = API.retrieve_nation_dump()
 
-# Pull all nations in 100000 Islands that are WA members, and convert to name strings
-waMembers = set(
-    # Save name (child [8]) string, converting to lowercase, underscore format
-    nation[0].text.lower().replace(" ", "_") for nation in nationsXML
-    # Check region (child [8]) and WA status (child [5])
-    if nation[8].text == "10000 Islands" and nation[5].text == "WA Member"
-)
+# Pull all nations in 100000 Islands that are WA members
+logging.info("Collecting 10000 Islands WA Members")
+# Initalize empty list
+waMembers = set()
+# Iterate through xml nodes
+for nationNode in nationsXML:
+    # Convert each node to a NationStandard object
+    nation = Nation(nationNode)
+    # If the nation is in XKI and WA, add to list
+    if nation["REGION"].text == "10000 Islands" and nation["UNSTATUS"].text == "WA Member":
+        # Add the formatted name
+        waMembers.add(nation["NAME"].text.lower().replace(" ", "_"))
 
+logging.info("Comparing WA Member list with target endorsers")
 # Determine WA members who have not endorsed target
 nonendorsers = waMembers - endorsers
 
 # Print output in formatted manner
+logging.info("Outputting results\n")
+# Header
+print(f"The following WA Members of 10000 Islands have not endorsed {target}:")
 for step, nonendorser in enumerate(nonendorsers):
     # Increment step so that it is 1-based
     print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}")

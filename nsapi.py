@@ -140,6 +140,11 @@ class NSRequester:
         """Makes an self.xml_request using 'nation=<nation_name>' and encodes in a NationStandard"""
         return NationStandard(self.xml_request(f"nation={nation_name}"))
 
+    def nation_shard_text(self, nation_name: str, shard: str) -> str:
+        """Returns the text retrieved from a single shard for a nation"""
+        # XML is returned as a Nation node containing the shard, accesed with [0]
+        return self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
+
 class NationStandard:
     """Wrapper for a Nation Standard XML data provided by NS"""
 
