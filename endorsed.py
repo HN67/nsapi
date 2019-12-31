@@ -1,8 +1,22 @@
 """Determines who has not endorsed someone on NationStates"""
 
+# Import logging
+import logging
+
 # Import requests and lxml
 import requests
 from lxml import etree
+
+# Import nsapi
+import nsapi
+
+# Set logging level
+level = logging.INFO
+logging.basicConfig(level=level)
+# Name logger
+logger = logging.getLogger()
+# Change nsapi logging level
+nsapi.logger.setLevel(level=level)
 
 # Set target nation to check against
 target = "kuriko"

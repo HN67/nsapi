@@ -111,21 +111,30 @@ class NSRequester:
         logging.info("XML document retrieval and parsing complete")
         return xml
 
-    def raw_request(self, api: str) -> str:
+    def raw_request(self, api: str, shards: typing.Optional[typing.List[str]] = None) -> str:
         """Returns the text retrieved the specified NS api
-        Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>
+        Offers blind support for shards
+        Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>+"&q="+<shards[0]>+...
         """
         # Make request (attaching the given api to NS's API page)
+        # Prepare target
+        target = "https://www.nationstates.net/cgi-bin/api.cgi?"+api+"&q="
+        # Add shards if they exist
+        if shards:
+            target += "+".join(shards)
         request = requests.get(
-            "https://www.nationstates.net/cgi-bin/api.cgi?"+api,
+            target,
             headers=self.headers
         )
         # Return parsed Element
         return request.text
 
-    def xml_request(self, api: str) -> etree.Element:
+    def xml_request(
+            self, api: str,
+            shards: typing.Optional[typing.List[str]] = None
+    ) -> etree.Element:
         """Makes a request using self.raw_request and tries to parse the result into XML node"""
-        return etree.fromstring(self.raw_request(api))
+        return etree.fromstring(self.raw_request(api, shards))
 
     def nation_standard_request(self, nation_name: str) -> NationStandard:
         """Makes an self.xml_request using 'nation=<nation_name>' and encodes in a NationStandard"""
