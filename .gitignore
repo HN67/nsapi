@@ -3,3 +3,6 @@
 
 # Local cookie for checking when datadump was downloaded
 cookie.json
+
+# Ignore pycache
+__pycache__/

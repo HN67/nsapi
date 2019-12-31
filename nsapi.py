@@ -19,11 +19,13 @@ import os
 import shutil
 # Import request to download data
 import requests
-# Import lxml to parse data in XML tree
+# Import lxml etree
 from lxml import etree
 
 # Set logging level
 logging.basicConfig(level=logging.INFO)
+# Reference logger
+logger = logging.getLogger()
 
 def absolute_path(path: str) -> str:
     """Returns the absolute path of a given path based on this file"""
@@ -69,11 +71,12 @@ class NSRequester:
                 # Expected to contain dump_timestamp
                 cookie = json.load(f)
         except FileNotFoundError:
-            # Create if cookie doesn't exist
-            cookie = {"dump_timestring": date.today().isoformat()}
+            # Download if cookie does not exist
             # Write to the file
             logging.info("Cookie does not exist, creating current cookie and downloading dump")
             download()
+            # Create cookie
+            cookie = {"dump_timestring": date.today().isoformat()}
         else:
             # Check timestamp, redownload data if outdated
             if date.fromisoformat(cookie["dump_timestring"]) < date.today():
@@ -184,7 +187,7 @@ def main():
 
     API = NSRequester("HN67 API Reader")
 
-    #nations = API.retrieve_nation_dump()
+    nations = API.retrieve_nation_dump()
 
     print(API.nation_standard_request("the_grendels")["LEADER"].text)
 
