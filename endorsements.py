@@ -45,6 +45,15 @@ unendorsed = [
     if nation["ENDORSEMENTS"].text is None or endorser not in nation["ENDORSEMENTS"].text
 ]
 
+# Delete nation list to give RAM some relief
+# Deletes the XML root itself, the last nationNode reference, and the nation reference
+# Also deletes the waMembers list which contains NationStandards that reference the tree
+# These should free up the XML tree for the GC
+del nationsXML
+del waMembers
+del nationNode
+del nation
+
 # Output unendorsed nations
 logging.info("Outputting results\n")
 # Header

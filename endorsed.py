@@ -40,6 +40,13 @@ for nationNode in nationsXML:
         # Add the formatted name
         waMembers.add(nation["NAME"].text.lower().replace(" ", "_"))
 
+# Delete nation list to give RAM some relief
+# Deletes the XML root itself, the last nationNode reference, and the nation reference
+# These should free up the XML tree for the GC
+del nationsXML
+del nationNode
+del nation
+
 logging.info("Comparing WA Member list with target endorsers")
 # Determine WA members who have not endorsed target
 nonendorsers = waMembers - endorsers
@@ -51,3 +58,6 @@ print(f"The following WA Members of 10000 Islands have not endorsed {target}:")
 for step, nonendorser in enumerate(nonendorsers):
     # Increment step so that it is 1-based
     print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}")
+
+# Wait for user input before ending (prevents closing command prompt)
+input("Press <Enter> to exit")
