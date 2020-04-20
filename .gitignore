@@ -5,7 +5,8 @@
 cookie.json
 
 # Ignore output text files
-
+endorsements.txt
+endorsed.txt
 
 # Ignore pycache
 __pycache__/

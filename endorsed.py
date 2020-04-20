@@ -49,7 +49,7 @@ nonendorsers = waMembers - endorsers
 
 # Print output in formatted manner
 logging.info("Outputting results\n")
-with open("endorsed.txt", "w") as f:
+with open(nsapi.absolute_path("endorsed.txt"), "w") as f:
     # Header
     print(
         f"The following WA Members of 10000 Islands have not endorsed {target}:", file=f
