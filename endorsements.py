@@ -19,7 +19,7 @@ nsapi.logger.setLevel(level=level)
 API = nsapi.NSRequester("HN67 API Reader")
 
 # Set endorser nation to check for
-endorser = "kuriko"
+endorser = "hn67"
 
 # Load downloaded nation file
 nationsXML = API.retrieve_nation_dump()
@@ -56,12 +56,13 @@ del nation
 
 # Output unendorsed nations
 logging.info("Outputting results\n")
-# Header
-print(f"{endorser} has not endorsed the following WA Members in 10000 Islands:")
-# Print each nation, with a URL generated
-for step, nation in enumerate(unendorsed):
-    # Increment step so that it is 1-based
-    print(f"{step+1}. https://www.nationstates.net/nation={nation}")
+with open("output.txt", "w") as f:
+    # Header
+    print(f"{endorser} has not endorsed the following WA Members in 10000 Islands:", file=f)
+    # Print each nation, with a URL generated
+    for step, nation in enumerate(unendorsed):
+        # Increment step so that it is 1-based
+        print(f"{step+1}. https://www.nationstates.net/nation={nation}", file=f)
 
-# Wait for user input before ending (prevents closing command prompt)
-input("Press <Enter> to exit")
+    # Wait for user input before ending (prevents closing command prompt)
+    input("Press <Enter> to exit")

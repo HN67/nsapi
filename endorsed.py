@@ -53,11 +53,12 @@ nonendorsers = waMembers - endorsers
 
 # Print output in formatted manner
 logging.info("Outputting results\n")
-# Header
-print(f"The following WA Members of 10000 Islands have not endorsed {target}:")
-for step, nonendorser in enumerate(nonendorsers):
-    # Increment step so that it is 1-based
-    print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}")
+with open("endorsed.txt", "w") as f:
+    # Header
+    print(f"The following WA Members of 10000 Islands have not endorsed {target}:", file=f)
+    for step, nonendorser in enumerate(nonendorsers):
+        # Increment step so that it is 1-based
+        print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}", file=f)
 
-# Wait for user input before ending (prevents closing command prompt)
-input("Press <Enter> to exit")
+    # Wait for user input before ending (prevents closing command prompt)
+    input("Press <Enter> to exit")
