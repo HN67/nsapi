@@ -33,16 +33,21 @@ for nationNode in nationsXML:
     # Convert each node to a NationStandard object
     nation = Nation(nationNode)
     # If the nation is in XKI and WA, add to list
-    if nation["REGION"].text == "10000 Islands" and nation["UNSTATUS"].text == "WA Member":
+    if (
+        nation["REGION"].text == "10000 Islands"
+        and nation["UNSTATUS"].text == "WA Member"
+    ):
         waMembers.append(nation)
 
 # Pull nations who are not endorsed
 logging.info("Collecting WA members who have not been endorsed")
 unendorsed = [
     # Save name string, converting to lowercase, underscore format
-    nation["NAME"].text.lower().replace(" ", "_") for nation in waMembers
+    nation["NAME"].text.lower().replace(" ", "_")
+    for nation in waMembers
     # Check if unendorsed by checking endorsements
-    if nation["ENDORSEMENTS"].text is None or endorser not in nation["ENDORSEMENTS"].text
+    if nation["ENDORSEMENTS"].text is None
+    or endorser not in nation["ENDORSEMENTS"].text
 ]
 
 # Delete nation list to give RAM some relief
@@ -58,7 +63,10 @@ del nation
 logging.info("Outputting results\n")
 with open("output.txt", "w") as f:
     # Header
-    print(f"{endorser} has not endorsed the following WA Members in 10000 Islands:", file=f)
+    print(
+        f"{endorser} has not endorsed the following WA Members in 10000 Islands:",
+        file=f,
+    )
     # Print each nation, with a URL generated
     for step, nation in enumerate(unendorsed):
         # Increment step so that it is 1-based

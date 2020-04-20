@@ -4,5 +4,14 @@
 # Local cookie for checking when datadump was downloaded
 cookie.json
 
+# Ignore output text files
+
+
 # Ignore pycache
 __pycache__/
+
+# Ignore vscode folder
+.vscode/
+
+# Ignore mypy cache
+.mypy_cache/

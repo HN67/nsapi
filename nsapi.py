@@ -7,18 +7,23 @@ from __future__ import annotations
 
 # Import logging for logging
 import logging
+
 # Import typing for parameter/return typing
 import typing
 
 # Import json and datetime to create custom cookie
 import json
 from datetime import date
+
 # Import os for path stuff
 import os
+
 # Import shutil for copying download data
 import shutil
+
 # Import request to download data
 import requests
+
 # Import lxml etree
 from lxml import etree
 
@@ -27,9 +32,11 @@ logging.basicConfig(level=logging.INFO)
 # Reference logger
 logger = logging.getLogger()
 
+
 def absolute_path(path: str) -> str:
     """Returns the absolute path of a given path based on this file"""
     return os.path.join(os.path.dirname(__file__), path)
+
 
 def download_file(url: str, fileName: str, *, headers: typing.Dict[str, str]) -> None:
     """Downloads a file from <url> to the location specified by <fileName>"""
@@ -41,6 +48,7 @@ def download_file(url: str, fileName: str, *, headers: typing.Dict[str, str]) ->
             # Copy data
             shutil.copyfileobj(r.raw, f)
     logging.info("Finished download of <%s> to <%s>", url, fileName)
+
 
 class NSRequester:
     """Class to manage making requests from the NS API"""
@@ -73,7 +81,9 @@ class NSRequester:
         except FileNotFoundError:
             # Download if cookie does not exist
             # Write to the file
-            logging.info("Cookie does not exist, creating current cookie and downloading dump")
+            logging.info(
+                "Cookie does not exist, creating current cookie and downloading dump"
+            )
             download()
             # Create cookie
             cookie = {"dump_timestring": date.today().isoformat()}
@@ -111,27 +121,25 @@ class NSRequester:
         logging.info("XML document retrieval and parsing complete")
         return xml
 
-    def raw_request(self, api: str, shards: typing.Optional[typing.List[str]] = None) -> str:
+    def raw_request(
+        self, api: str, shards: typing.Optional[typing.List[str]] = None
+    ) -> str:
         """Returns the text retrieved the specified NS api
         Offers blind support for shards
         Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>+"&q="+<shards[0]>+...
         """
         # Make request (attaching the given api to NS's API page)
         # Prepare target
-        target = "https://www.nationstates.net/cgi-bin/api.cgi?"+api+"&q="
+        target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api + "&q="
         # Add shards if they exist
         if shards:
             target += "+".join(shards)
-        request = requests.get(
-            target,
-            headers=self.headers
-        )
+        request = requests.get(target, headers=self.headers)
         # Return parsed Element
         return request.text
 
     def xml_request(
-            self, api: str,
-            shards: typing.Optional[typing.List[str]] = None
+        self, api: str, shards: typing.Optional[typing.List[str]] = None
     ) -> etree.Element:
         """Makes a request using self.raw_request and tries to parse the result into XML node"""
         return etree.fromstring(self.raw_request(api, shards))
@@ -145,17 +153,46 @@ class NSRequester:
         # XML is returned as a Nation node containing the shard, accesed with [0]
         return self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
 
+
 class NationStandard:
     """Wrapper for a Nation Standard XML data provided by NS"""
 
     # Maps tag names to index number based on API Version 9
     tag_map = [
-        "NAME", "TYPE", "FULLNAME", "MOTTO", "CATEGORY", "UNSTATUS", "ENDORSEMENTS",
-        "FREEDOM", "REGION", "POPULATION", "TAX", "ANIMAL", "CURRENCY",
-        "DEMONYM", "DEMONYM2", "DEMONYM2PLURAL", "FLAG", "MAJORINDUSTRY", "GOVTPRIORITY",
-        "GOVT", "FOUNDED", "FIRSTLOGIN", "LASTLOGIN", "LASTACTIVITY", "INFLUENCE", "FREEDOMSCORES",
-        "PUBLICSECTOR", "DEATHS", "LEADER", "CAPITAL", "RELIGION",
-        "FACTBOOKS", "DISPATCHES", "CARDCATEGORY",
+        "NAME",
+        "TYPE",
+        "FULLNAME",
+        "MOTTO",
+        "CATEGORY",
+        "UNSTATUS",
+        "ENDORSEMENTS",
+        "FREEDOM",
+        "REGION",
+        "POPULATION",
+        "TAX",
+        "ANIMAL",
+        "CURRENCY",
+        "DEMONYM",
+        "DEMONYM2",
+        "DEMONYM2PLURAL",
+        "FLAG",
+        "MAJORINDUSTRY",
+        "GOVTPRIORITY",
+        "GOVT",
+        "FOUNDED",
+        "FIRSTLOGIN",
+        "LASTLOGIN",
+        "LASTACTIVITY",
+        "INFLUENCE",
+        "FREEDOMSCORES",
+        "PUBLICSECTOR",
+        "DEATHS",
+        "LEADER",
+        "CAPITAL",
+        "RELIGION",
+        "FACTBOOKS",
+        "DISPATCHES",
+        "CARDCATEGORY",
     ]
     # Transpose the tag_map list into a dictionary
     tag_map = {tag: index for index, tag in enumerate(tag_map)}
@@ -177,7 +214,9 @@ class NationStandard:
             else:
                 # Incorrect tag, search manually
                 # Raise warning
-                logging.warning("NationStandard tag_map returned wrong index for key <%s>", key)
+                logging.warning(
+                    "NationStandard tag_map returned wrong index for key <%s>", key
+                )
                 return self.find_tag(key)
         else:
             # Unknown tag, search manually
@@ -196,6 +235,7 @@ class NationStandard:
         # Raise error
         raise ValueError(f"Child with tag <{key}> not found in node {self}")
 
+
 def main():
     """Main function; only for testing"""
 
@@ -206,6 +246,7 @@ def main():
     print(API.nation_standard_request("the_grendels")["LEADER"].text)
 
     print(API.raw_request("a=useragent"))
+
 
 # script-only __main__ paradigm, for testing
 if __name__ == "__main__":

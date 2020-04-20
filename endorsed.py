@@ -36,7 +36,10 @@ for nationNode in nationsXML:
     # Convert each node to a NationStandard object
     nation = Nation(nationNode)
     # If the nation is in XKI and WA, add to list
-    if nation["REGION"].text == "10000 Islands" and nation["UNSTATUS"].text == "WA Member":
+    if (
+        nation["REGION"].text == "10000 Islands"
+        and nation["UNSTATUS"].text == "WA Member"
+    ):
         # Add the formatted name
         waMembers.add(nation["NAME"].text.lower().replace(" ", "_"))
 
@@ -55,7 +58,9 @@ nonendorsers = waMembers - endorsers
 logging.info("Outputting results\n")
 with open("endorsed.txt", "w") as f:
     # Header
-    print(f"The following WA Members of 10000 Islands have not endorsed {target}:", file=f)
+    print(
+        f"The following WA Members of 10000 Islands have not endorsed {target}:", file=f
+    )
     for step, nonendorser in enumerate(nonendorsers):
         # Increment step so that it is 1-based
         print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}", file=f)
