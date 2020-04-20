@@ -10,6 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
+from typing import Optional
 
 # Import json and datetime to create custom cookie
 import json
@@ -21,11 +22,14 @@ import os
 # Import shutil for copying download data
 import shutil
 
+# Import gzip to parse downloaded gz file
+import gzip
+
+# Import etree to parse data
+import xml.etree.ElementTree as etree
+
 # Import request to download data
 import requests
-
-# Import lxml etree
-from lxml import etree
 
 # Set logging level
 logging.basicConfig(level=logging.INFO)
@@ -58,17 +62,19 @@ class NSRequester:
         # Save user agent and construct headers object for later use
         self.headers = {"User-Agent": userAgent}
 
-    def retrieve_nation_dump(self):
+    # TODO make cookie more intelligent to reflect the fact that dump updates ~2230 PST
+    def retrieve_nation_dump(self) -> etree.Element:
         """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
 
         logging.info("Attempting to retrieve nations data dump")
 
         # Construct download command that references url and file destination
-        download = lambda: download_file(
-            "https://www.nationstates.net/pages/nations.xml.gz",
-            absolute_path("nations.xml.gz"),
-            headers=self.headers,
-        )
+        def download() -> None:
+            download_file(
+                "https://www.nationstates.net/pages/nations.xml.gz",
+                absolute_path("nations.xml.gz"),
+                headers=self.headers,
+            )
 
         # Notify of downloading
         logging.info("Checking cookie and downloading dump if needed")
@@ -107,7 +113,8 @@ class NSRequester:
 
         # Attempt to load the data
         try:
-            xml = etree.parse(absolute_path("nations.xml.gz")).getroot()
+            with gzip.open(absolute_path("nations.xml.gz")) as dump:
+                xml = etree.parse(dump).getroot()
         except FileNotFoundError:
             # If data does not exist, then download
             logging.info("Dump file missing, redownloading")
@@ -115,7 +122,8 @@ class NSRequester:
 
             # The data should have been downloaded
             logging.info("Attempting to parse XML tree")
-            xml = etree.parse(absolute_path("nations.xml.gz")).getroot()
+            with gzip.open(absolute_path("nations.xml.gz")) as dump:
+                xml = etree.parse(dump).getroot()
 
         # Return the xml
         logging.info("XML document retrieval and parsing complete")
@@ -148,7 +156,7 @@ class NSRequester:
         """Makes an self.xml_request using 'nation=<nation_name>' and encodes in a NationStandard"""
         return NationStandard(self.xml_request(f"nation={nation_name}"))
 
-    def nation_shard_text(self, nation_name: str, shard: str) -> str:
+    def nation_shard_text(self, nation_name: str, shard: str) -> Optional[str]:
         """Returns the text retrieved from a single shard for a nation"""
         # XML is returned as a Nation node containing the shard, accesed with [0]
         return self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
@@ -158,7 +166,7 @@ class NationStandard:
     """Wrapper for a Nation Standard XML data provided by NS"""
 
     # Maps tag names to index number based on API Version 9
-    tag_map = [
+    tag_list = [
         "NAME",
         "TYPE",
         "FULLNAME",
@@ -194,8 +202,8 @@ class NationStandard:
         "DISPATCHES",
         "CARDCATEGORY",
     ]
-    # Transpose the tag_map list into a dictionary
-    tag_map = {tag: index for index, tag in enumerate(tag_map)}
+    # Transpose the tag_list into into a dictionary
+    tag_map = {tag: index for index, tag in enumerate(tag_list)}
 
     def __init__(self, node: etree.Element):
         """Wrapper for NATION XML node povided by NS Standard Nation API"""
@@ -236,12 +244,10 @@ class NationStandard:
         raise ValueError(f"Child with tag <{key}> not found in node {self}")
 
 
-def main():
+def main() -> None:
     """Main function; only for testing"""
 
     API = NSRequester("HN67 API Reader")
-
-    nations = API.retrieve_nation_dump()
 
     print(API.nation_standard_request("the_grendels")["LEADER"].text)
 
