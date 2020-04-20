@@ -50,16 +50,7 @@ unendorsed = [
     or endorser not in nation["ENDORSEMENTS"].text
 ]
 
-# Delete nation list to give RAM some relief
-# Deletes the XML root itself, the last nationNode reference, and the nation reference
-# Also deletes the waMembers list which contains NationStandards that reference the tree
-# These should free up the XML tree for the GC
-del nationsXML
-del waMembers
-del nationNode
-del nation
-
-# Output unendorsed nations
+# Output unendorsed nations TODO change to absolute path
 logging.info("Outputting results\n")
 with open("output.txt", "w") as f:
     # Header
@@ -71,6 +62,3 @@ with open("output.txt", "w") as f:
     for step, nation in enumerate(unendorsed):
         # Increment step so that it is 1-based
         print(f"{step+1}. https://www.nationstates.net/nation={nation}", file=f)
-
-    # Wait for user input before ending (prevents closing command prompt)
-    input("Press <Enter> to exit")
