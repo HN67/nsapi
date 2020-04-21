@@ -33,10 +33,9 @@ for nationNode in nationsXML:
     # Convert each node to a NationStandard object
     nation = Nation(nationNode)
     # If the nation is in XKI and WA, add to list
-    if (
-        nation["REGION"].text == "10000 Islands"
-        and nation["UNSTATUS"].text == "WA Member"
-    ):
+    if nation.basic("REGION") == "10000 Islands" and nation.basic(
+        "UNSTATUS"
+    ).startswith("WA"):
         waMembers.append(nation)
 
 # Pull nations who are not endorsed
