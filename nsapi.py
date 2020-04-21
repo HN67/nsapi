@@ -10,7 +10,6 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Optional
 
 # Import json and datetime to create custom cookie
 import json
@@ -156,10 +155,11 @@ class NSRequester:
         """Makes an self.xml_request using 'nation=<nation_name>' and encodes in a NationStandard"""
         return NationStandard(self.xml_request(f"nation={nation_name}"))
 
-    def nation_shard_text(self, nation_name: str, shard: str) -> Optional[str]:
+    def nation_shard_text(self, nation_name: str, shard: str) -> str:
         """Returns the text retrieved from a single shard for a nation"""
         # XML is returned as a Nation node containing the shard, accesed with [0]
-        return self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
+        text = self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
+        return text if text else ""
 
 
 class NationStandard:
@@ -211,7 +211,7 @@ class NationStandard:
         self.node = node
 
     def __getitem__(self, key: str) -> etree.Element:
-        """Attempts to retrieve a tag, sepcified by name"""
+        """Attempts to retrieve a Element, sepcified by tag name"""
         # Check if tag is known
         if key in self.tag_map:
             child = self.node[self.tag_map[key]]
@@ -230,6 +230,13 @@ class NationStandard:
             # Unknown tag, search manually
             logging.info("NationStandard tag_map does not contain key <%s>", key)
             return self.find_tag(key)
+
+    def basic(self, key: str) -> str:
+        """Attempts to retrive the text associated with a basic field, such as endorsements.
+        Returns an empty string if the node has no text
+        """
+        value = self[key].text
+        return value if value else ""
 
     def find_tag(self, key: str) -> etree.Element:
         """Searches through the Nation node's children for a tag based on given name"""

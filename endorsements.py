@@ -43,7 +43,7 @@ for nationNode in nationsXML:
 logging.info("Collecting WA members who have not been endorsed")
 unendorsed = [
     # Save name string, converting to lowercase, underscore format
-    nation["NAME"].text.lower().replace(" ", "_")
+    nation.basic("NAME").lower().replace(" ", "_")
     for nation in waMembers
     # Check if unendorsed by checking endorsements
     if nation["ENDORSEMENTS"].text is None
@@ -59,6 +59,6 @@ with open(nsapi.absolute_path("endorsements.txt"), "w") as f:
         file=f,
     )
     # Print each nation, with a URL generated
-    for step, nation in enumerate(unendorsed):
+    for step, name in enumerate(unendorsed):
         # Increment step so that it is 1-based
-        print(f"{step+1}. https://www.nationstates.net/nation={nation}", file=f)
+        print(f"{step+1}. https://www.nationstates.net/nation={name}", file=f)

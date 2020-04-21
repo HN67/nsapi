@@ -41,7 +41,7 @@ for nationNode in nationsXML:
         and nation["UNSTATUS"].text == "WA Member"
     ):
         # Add the formatted name
-        waMembers.add(nation["NAME"].text.lower().replace(" ", "_"))
+        waMembers.add(nation.basic("NAME").lower().replace(" ", "_"))
 
 logging.info("Comparing WA Member list with target endorsers")
 # Determine WA members who have not endorsed target
