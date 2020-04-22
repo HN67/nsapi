@@ -20,22 +20,22 @@ API = nsapi.NSRequester("HN67 API Reader")
 
 # Set endorser nation to check for
 endorser = "hn67"
+# Collect region
+region = API.nation_shard_text(endorser, "region")
 
 # Load downloaded nation file
 nationsXML = API.retrieve_nation_dump()
 
 # Pull all nations in 100000 Islands that are WA members
-logging.info("Collecting 10000 Islands WA Members")
+logging.info("Collecting %s WA Members", region)
 # Initalize empty list
 waMembers = []
 # Iterate through xml nodes
 for nationNode in nationsXML:
     # Convert each node to a NationStandard object
     nation = Nation(nationNode)
-    # If the nation is in XKI and WA, add to list
-    if nation.basic("REGION") == "10000 Islands" and nation.basic(
-        "UNSTATUS"
-    ).startswith("WA"):
+    # If the nation is in the region and WA, add to list
+    if nation.basic("REGION") == region and nation.basic("UNSTATUS").startswith("WA"):
         waMembers.append(nation)
 
 # Pull nations who are not endorsed
@@ -49,13 +49,14 @@ unendorsed = [
     or endorser not in nation["ENDORSEMENTS"].text
 ]
 
+# TODO individually verify for small lists
+
 # Output unendorsed nations
 logging.info("Outputting results\n")
 with open(nsapi.absolute_path("endorsements.txt"), "w") as f:
     # Header
     print(
-        f"{endorser} has not endorsed the following WA Members in 10000 Islands:",
-        file=f,
+        f"{endorser} has not endorsed the following WA Members in {region}:", file=f,
     )
     # Print each nation, with a URL generated
     for step, name in enumerate(unendorsed):
