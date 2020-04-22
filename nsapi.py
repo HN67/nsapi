@@ -10,6 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
+from typing import Dict
 
 # Import json and datetime to create custom cookie
 import json
@@ -62,6 +63,7 @@ class NSRequester:
         self.headers = {"User-Agent": userAgent}
 
     # TODO make cookie more intelligent to reflect the fact that dump updates ~2230 PST
+    # TODO look into iterparse to avoid loading the entire gigantic tree
     def retrieve_nation_dump(self) -> etree.Element:
         """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
 
@@ -129,7 +131,7 @@ class NSRequester:
         return xml
 
     def raw_request(
-        self, api: str, shards: typing.Optional[typing.List[str]] = None
+        self, api: str, shards: typing.Optional[typing.Iterable[str]] = None
     ) -> str:
         """Returns the text retrieved the specified NS api
         Offers blind support for shards
@@ -146,7 +148,7 @@ class NSRequester:
         return request.text
 
     def xml_request(
-        self, api: str, shards: typing.Optional[typing.List[str]] = None
+        self, api: str, shards: typing.Optional[typing.Iterable[str]] = None
     ) -> etree.Element:
         """Makes a request using self.raw_request and tries to parse the result into XML node"""
         return etree.fromstring(self.raw_request(api, shards))
@@ -160,6 +162,37 @@ class NSRequester:
         # XML is returned as a Nation node containing the shard, accesed with [0]
         text = self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
         return text if text else ""
+
+    def nation(self, nation: str) -> Nation:
+        """Returns a Nation object using this requester"""
+        return Nation(self, nation)
+
+
+class Nation:
+    """Represents a live connection to the API of a Nation on NS"""
+
+    def __init__(self, api: NSRequester, name: str) -> None:
+        self.api = api
+        self.name = name
+
+    def standard(self) -> NationStandard:
+        """Returns a NationStandard object for this Nation"""
+        return self.api.nation_standard_request(self.name)
+
+    def shards(self, *shards: str) -> Dict[str, str]:
+        """Naively returns a Dict mapping from the shard name to the text of that element
+        Not all shards are one level deep, and as such have no text,
+        but this method will only return the empty string, with no warning
+        """
+        return {
+            shard: node.text if node.text else ""
+            for node in self.api.xml_request(f"nation={self.name}", shards)
+            for shard in shards
+        }
+
+    def shard(self, shard: str) -> str:
+        """Naively returns the text associated with the shard node, which may be empty"""
+        return self.shards(shard)[shard]
 
 
 class NationStandard:

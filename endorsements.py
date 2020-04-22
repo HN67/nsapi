@@ -19,7 +19,7 @@ nsapi.logger.setLevel(level=level)
 API = nsapi.NSRequester("HN67 API Reader")
 
 # Set endorser nation to check for
-endorser = "kuriko"
+endorser = "hn67"
 
 # Load downloaded nation file
 nationsXML = API.retrieve_nation_dump()
@@ -49,7 +49,7 @@ unendorsed = [
     or endorser not in nation["ENDORSEMENTS"].text
 ]
 
-# Output unendorsed nations TODO change to absolute path
+# Output unendorsed nations
 logging.info("Outputting results\n")
 with open(nsapi.absolute_path("endorsements.txt"), "w") as f:
     # Header
