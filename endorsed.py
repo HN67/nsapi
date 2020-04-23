@@ -27,7 +27,7 @@ region = API.nation_shard_text(target, "region")
 endorsers = set(API.nation_shard_text(target, "ENDORSEMENTS").split(","))
 
 # Load downloaded nation file
-nationsXML = API.retrieve_nation_dump()
+nationsXML = API.iterated_nation_dump()
 
 # Pull all nations in the region that are WA members
 logging.info("Collecting %s WA Members", region)

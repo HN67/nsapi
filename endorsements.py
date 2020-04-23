@@ -24,7 +24,7 @@ endorser = "hn67"
 region = API.nation_shard_text(endorser, "region")
 
 # Load downloaded nation file
-nationsXML = API.retrieve_nation_dump()
+nationsXML = API.iterated_nation_dump()
 
 # Pull all nations in 100000 Islands that are WA members
 logging.info("Collecting %s WA Members", region)

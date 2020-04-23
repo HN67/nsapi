@@ -312,8 +312,6 @@ def main() -> None:
 
     API = NSRequester("HN67 API Reader")
 
-    print(API.nation_standard_request("the_grendels")["LEADER"].text)
-
     print(API.raw_request("a=useragent"))
 
 
