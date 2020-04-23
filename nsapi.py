@@ -62,20 +62,20 @@ class NSRequester:
         # Save user agent and construct headers object for later use
         self.headers = {"User-Agent": userAgent}
 
-    # TODO make cookie more intelligent to reflect the fact that dump updates ~2230 PST
-    # TODO look into iterparse to avoid loading the entire gigantic tree
-    def retrieve_nation_dump(self) -> etree.Element:
-        """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
+        self.nationDumpPath: str = absolute_path("nations.xml.gz")
+
+    def download_nation_dump(self) -> None:
+        """Downloads the compressed nation dump"""
+        download_file(
+            "https://www.nationstates.net/pages/nations.xml.gz",
+            self.nationDumpPath,
+            headers=self.headers,
+        )
+
+    def update_nation_dump(self) -> None:
+        """Downloads the compressed nation dump only if it is outdated or doesnt exist"""
 
         logging.info("Attempting to retrieve nations data dump")
-
-        # Construct download command that references url and file destination
-        def download() -> None:
-            download_file(
-                "https://www.nationstates.net/pages/nations.xml.gz",
-                absolute_path("nations.xml.gz"),
-                headers=self.headers,
-            )
 
         # Notify of downloading
         logging.info("Checking cookie and downloading dump if needed")
@@ -91,7 +91,7 @@ class NSRequester:
             logging.info(
                 "Cookie does not exist, creating current cookie and downloading dump"
             )
-            download()
+            self.download_nation_dump()
             # Create cookie
             cookie = {"dump_timestring": date.today().isoformat()}
         else:
@@ -99,32 +99,35 @@ class NSRequester:
             if date.fromisoformat(cookie["dump_timestring"]) < date.today():
                 logging.info("Cookie show outdated timestring, redownloading dump")
                 # Write to the file
-                download()
+                self.download_nation_dump()
                 # Update timestamp
                 cookie["dump_timestring"] = date.today().isoformat()
             else:
-                logging.info("Cookie is not outdated, attempting to use current dump")
+                # Verify that dump exists
+                if not os.path.isfile(self.nationDumpPath):
+                    logging.info(
+                        "Cookie is not outdated but dump does not exist, so downloading"
+                    )
+                    self.download_nation_dump()
 
         # Save the cookie
         with open(absolute_path("cookie.json"), "w") as f:
             json.dump(cookie, f)
 
+    # TODO make cookie more intelligent to reflect the fact that dump updates ~2230 PST
+    # TODO look into iterparse to avoid loading the entire gigantic tree
+    def retrieve_nation_dump(self) -> etree.Element:
+        """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
+
+        # Update data dump
+        self.update_nation_dump()
+
         # Notify of start of parsing
         logging.info("Parsing XML tree")
 
         # Attempt to load the data
-        try:
-            with gzip.open(absolute_path("nations.xml.gz")) as dump:
-                xml = etree.parse(dump).getroot()
-        except FileNotFoundError:
-            # If data does not exist, then download
-            logging.info("Dump file missing, redownloading")
-            download()
-
-            # The data should have been downloaded
-            logging.info("Attempting to parse XML tree")
-            with gzip.open(absolute_path("nations.xml.gz")) as dump:
-                xml = etree.parse(dump).getroot()
+        with gzip.open(self.nationDumpPath) as dump:
+            xml = etree.parse(dump).getroot()
 
         # Return the xml
         logging.info("XML document retrieval and parsing complete")
