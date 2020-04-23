@@ -10,7 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Dict
+from typing import Dict, Generator
 
 # Import json and datetime to create custom cookie
 import json
@@ -115,7 +115,6 @@ class NSRequester:
             json.dump(cookie, f)
 
     # TODO make cookie more intelligent to reflect the fact that dump updates ~2230 PST
-    # TODO look into iterparse to avoid loading the entire gigantic tree
     def retrieve_nation_dump(self) -> etree.Element:
         """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
 
@@ -132,6 +131,27 @@ class NSRequester:
         # Return the xml
         logging.info("XML document retrieval and parsing complete")
         return xml
+
+    def iterated_nation_dump(self) -> Generator[etree.Element, None, None]:
+        """A generator that iterates through the nations in the data dump"""
+
+        # Update data dump
+        self.update_nation_dump()
+
+        logging.info("Starting iterative XML tree parse")
+
+        # Attempt to load the data
+        with gzip.open(self.nationDumpPath) as dump:
+            # Define iterator
+            iterator = etree.iterparse(dump, events=("start", "end"))
+            # Get root
+            _, root = next(iterator)
+
+            # Yield elements
+            for event, element in iterator:
+                if event == "end" and element.tag == "NATION":
+                    yield element
+                    root.clear()
 
     def raw_request(
         self, api: str, shards: typing.Optional[typing.Iterable[str]] = None
