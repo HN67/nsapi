@@ -49,8 +49,6 @@ unendorsed = [
     or endorser not in nation["ENDORSEMENTS"].text
 ]
 
-# TODO individually verify for small lists
-
 # Output unendorsed nations
 logging.info("Outputting results\n")
 with open(nsapi.absolute_path("endorsements.txt"), "w") as f:

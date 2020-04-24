@@ -14,7 +14,7 @@ from typing import Dict, Generator
 
 # Import json and datetime to create custom cookie
 import json
-from datetime import date
+import datetime
 
 # Import os for path stuff
 import os
@@ -52,6 +52,20 @@ def download_file(url: str, fileName: str, *, headers: typing.Dict[str, str]) ->
             # Copy data
             shutil.copyfileobj(r.raw, f)
     logging.info("Finished download of <%s> to <%s>", url, fileName)
+
+
+def current_dump_day() -> datetime.date:
+    """Calculates the latest day available for the data dump.
+    A datadump is generated ~2230 PST for that day, so the dump will be considered
+    available at 2300 PST or 0700 UTC the next day.
+    Returns a naive date"""
+    utc = datetime.datetime.utcnow()
+    logging.info("Current time is %s UTC", utc)
+    return (
+        utc.date() - datetime.timedelta(days=1)
+        if utc.time().hour >= 7
+        else utc.date() - datetime.timedelta(days=2)
+    )
 
 
 class NSRequester:
@@ -93,15 +107,19 @@ class NSRequester:
             )
             self.download_nation_dump()
             # Create cookie
-            cookie = {"dump_timestring": date.today().isoformat()}
+            cookie = {"dump_timestring": current_dump_day().isoformat()}
         else:
             # Check timestamp, redownload data if outdated
-            if date.fromisoformat(cookie["dump_timestring"]) < date.today():
+            if (
+                "dump_timestring" not in cookie
+                or datetime.date.fromisoformat(cookie["dump_timestring"])
+                < current_dump_day()
+            ):
                 logging.info("Cookie show outdated timestring, redownloading dump")
                 # Write to the file
                 self.download_nation_dump()
                 # Update timestamp
-                cookie["dump_timestring"] = date.today().isoformat()
+                cookie["dump_timestring"] = current_dump_day().isoformat()
             else:
                 # Verify that dump exists
                 if not os.path.isfile(self.nationDumpPath):
@@ -114,7 +132,6 @@ class NSRequester:
         with open(absolute_path("cookie.json"), "w") as f:
             json.dump(cookie, f)
 
-    # TODO make cookie more intelligent to reflect the fact that dump updates ~2230 PST
     def retrieve_nation_dump(self) -> etree.Element:
         """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
 
@@ -313,6 +330,8 @@ def main() -> None:
     API = NSRequester("HN67 API Reader")
 
     print(API.raw_request("a=useragent"))
+
+    print(current_dump_day())
 
 
 # script-only __main__ paradigm, for testing
