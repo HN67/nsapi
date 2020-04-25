@@ -24,19 +24,17 @@ endorser = "hn67"
 region = API.nation_shard_text(endorser, "region")
 
 # Load downloaded nation file
-nationsXML = API.iterated_nation_dump()
+# Pack into conversion generator to simplify transformations
+nationDump = (Nation(nation) for nation in API.iterated_nation_dump())
 
-# Pull all nations in 100000 Islands that are WA members
+# Pull all nations in the region that are WA members
+# Use generator because we dont need to generate a list that is never used
 logging.info("Collecting %s WA Members", region)
-# Initalize empty list
-waMembers = []
-# Iterate through xml nodes
-for nationNode in nationsXML:
-    # Convert each node to a NationStandard object
-    nation = Nation(nationNode)
-    # If the nation is in the region and WA, add to list
-    if nation.basic("REGION") == region and nation.basic("UNSTATUS").startswith("WA"):
-        waMembers.append(nation)
+waMembers = (
+    nation
+    for nation in nationDump
+    if nation.basic("REGION") == region and nation.basic("UNSTATUS").startswith("WA")
+)
 
 # Pull nations who are not endorsed
 logging.info("Collecting WA members who have not been endorsed")
