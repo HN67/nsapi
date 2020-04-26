@@ -6,9 +6,13 @@ import logging
 # Import typing constructs
 from typing import Iterable, Tuple
 
+# For timing
+import datetime
+
 # Import nsapi
 import nsapi
 from nsapi import NationStandard as Nation
+
 
 # Set logging level
 level = logging.INFO
@@ -65,6 +69,8 @@ def main() -> None:
     # Set endorser nation to check for
     nation = "hn67"
 
+    logging.info("Collecting data")
+    logging.info("Current time is %s UTC", datetime.datetime.utcnow())
     region, unendorsed = unendorsed_nations(API, nation)
 
     logging.info("Formatting results")
@@ -83,6 +89,8 @@ def main() -> None:
         print(header, file=f)
         # Formatted nation urls
         print(nationURLs, file=f)
+
+    logging.info("Current time is %s UTC", datetime.datetime.utcnow())
 
 
 # Call main function when run as script
