@@ -212,32 +212,83 @@ class NSRequester:
         """Returns a Nation object using this requester"""
         return Nation(self, nation)
 
+    def region(self, region: str) -> Region:
+        """Returns a Region object using this requester"""
+        return Region(self, region)
 
-class Nation:
-    """Represents a live connection to the API of a Nation on NS"""
+    def world(self) -> World:
+        """Returns a World object using this requester"""
+        return World(self)
 
-    def __init__(self, api: NSRequester, name: str) -> None:
+    def wa(self, council: str = "1") -> WA:
+        """Returns a WA object using this requester"""
+        return WA(self, council)
+
+
+class API:
+    """Represents a live connection to the API of a NS model"""
+
+    def __init__(self, requester: NSRequester, api: str, name: str) -> None:
+        self.requester = requester
         self.api = api
         self.name = name
 
-    def standard(self) -> NationStandard:
-        """Returns a NationStandard object for this Nation"""
-        return self.api.nation_standard_request(self.name)
+    def _key(self) -> str:
+        """Determines the first key of the request, encodes the API and name"""
+        return f"{self.api}={self.name}"
 
     def shards(self, *shards: str) -> Dict[str, str]:
         """Naively returns a Dict mapping from the shard name to the text of that element
+        Connects to the `<api>=<name>&q=<shards>` page of the api
         Not all shards are one level deep, and as such have no text,
         but this method will only return the empty string, with no warning
         """
         return {
             shard: node.text if node.text else ""
-            for node in self.api.xml_request(f"nation={self.name}", shards)
+            for node in self.requester.xml_request(self._key(), shards)
             for shard in shards
         }
 
     def shard(self, shard: str) -> str:
         """Naively returns the text associated with the shard node, which may be empty"""
         return self.shards(shard)[shard]
+
+
+class Nation(API):
+    """Represents a live connection to the API of a Nation on NS"""
+
+    def __init__(self, requester: NSRequester, name: str) -> None:
+        super().__init__(requester, "nation", name)
+
+    def standard(self) -> NationStandard:
+        """Returns a NationStandard object for this Nation"""
+        return self.requester.nation_standard_request(self.name)
+
+
+class Region(API):
+    """Represents a live connection to the API of a Region on NS"""
+
+    def __init__(self, requester: NSRequester, name: str) -> None:
+        super().__init__(requester, "region", name)
+
+
+class World(API):
+    """Reperesnts a live connection the the API of the World on NS"""
+
+    def __init__(self, requester: NSRequester) -> None:
+        super().__init__(requester, "world", "")
+
+    def _key(self) -> str:
+        return ""
+
+
+class WA(API):
+    """Represents a live connection the the API of a WA Council on NS
+    Defaults to General Assembly
+    """
+
+    def __init__(self, requester: NSRequester, council: str = "1") -> None:
+        super().__init__(requester, "wa", council)
 
 
 class NationStandard:
@@ -332,11 +383,11 @@ class NationStandard:
 def main() -> None:
     """Main function; only for testing"""
 
-    API = NSRequester("HN67 API Reader")
+    requester = NSRequester("HN67 API Reader")
 
-    print(API.raw_request("a=useragent"))
+    print(requester.raw_request("a=useragent"))
 
-    print(current_dump_day())
+    print(requester.wa().shard("members"))
 
 
 # script-only __main__ paradigm, for testing
