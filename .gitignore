@@ -2,7 +2,7 @@
 *.xml.gz
 
 # Local cookie for checking when datadump was downloaded
-cookie.json
+*.json
 
 # Ignore output text files
 endorsements.txt
