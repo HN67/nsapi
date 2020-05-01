@@ -8,6 +8,10 @@ from typing import Iterable, Tuple
 
 # For timing
 import datetime
+import time
+
+# Used to create and read caches
+import json
 
 # Import nsapi
 import nsapi
@@ -21,6 +25,11 @@ logging.basicConfig(level=level)
 logger = logging.getLogger()
 # Change nsapi logging level
 nsapi.logger.setLevel(level=level)
+
+
+def clean_format(string: str) -> str:
+    """Casts the string to lowercase and replaces spaces with underscores"""
+    return string.lower().replace(" ", "_")
 
 
 def unendorsed_nations(
@@ -40,24 +49,37 @@ def unendorsed_nations(
     # Pull all nations in the region that are WA members
     # Use generator because we dont need to generate a list that is never used
     logging.info("Collecting %s WA Members", region)
-    waMembers = (
+    waMembers = [
         nation
         for nation in nationDump
         if nation.basic("REGION") == region
         and nation.basic("UNSTATUS").startswith("WA")
-    )
+    ]
 
     # Pull nations who are not endorsed
     logging.info("Collecting WA members who have not been endorsed")
     nonendorsed = [
         # Save name string, converting to lowercase, underscore format
-        nation.basic("NAME").lower().replace(" ", "_")
+        clean_format(nation.basic("NAME"))
         for nation in waMembers
         # Check if unendorsed by checking endorsements
         if nation["ENDORSEMENTS"].text is None
         or endorser not in nation["ENDORSEMENTS"].text
     ]
 
+    # Manually remove false positives
+    # Only do 40/30seconds
+    logging.info("Starting cleaning")
+    cleaned = []
+    for index, nation in enumerate(nonendorsed):
+        if index % 40 == 0 and index != 0:
+            logging.info("Waiting to obey ratelimiting")
+            time.sleep(30)
+            logging.info("Continuing cleaning")
+        if endorser not in requester.nation(nation).shard("endorsements"):
+            cleaned.append(nation)
+    logging.info("Done cleaning")
+    nonendorsed = cleaned
     return (region, nonendorsed)
 
 
@@ -67,7 +89,7 @@ def main() -> None:
     # Setup API
     API = nsapi.NSRequester("HN67 API Reader")
     # Set endorser nation to check for
-    nation = "hn67"
+    nation = "kuriko"
 
     logging.info("Collecting data")
     logging.info("Current time is %s UTC", datetime.datetime.utcnow())
