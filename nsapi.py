@@ -10,7 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Dict, Generator
+from typing import Dict, Generator, List
 
 # Import json and datetime to create custom cookie
 import json
@@ -169,6 +169,11 @@ class NSRequester:
                 if event == "end" and element.tag == "NATION":
                     yield element
                     root.clear()
+
+    def retrieve_region_wa(self, region: str) -> Dict[str, List[str]]:
+        """Collects live endorsement data for an entire region
+        Can take a long time due to respecting NS API ratelimit
+        """
 
     def raw_request(
         self, api: str, shards: typing.Optional[typing.Iterable[str]] = None
