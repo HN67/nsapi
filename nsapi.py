@@ -10,7 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Dict, Generator, List
+from typing import Dict, Generator, List, Iterable, Optional
 
 # Import json and datetime to create custom cookie
 import json
@@ -175,38 +175,34 @@ class NSRequester:
         Can take a long time due to respecting NS API ratelimit
         """
 
-    def raw_request(
-        self, api: str, shards: typing.Optional[typing.Iterable[str]] = None
-    ) -> str:
-        """Returns the text retrieved the specified NS api
-        Offers blind support for shards
-        Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>+"&q="+<shards[0]>+...
+    def request(self, api: str) -> str:
+        """Returns the text retrieved from the specified NS api.
+        Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>
         """
-        # Make request (attaching the given api to NS's API page)
-        # Prepare target
-        target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api + "&q="
+        # Prepare target (attaching the given api to NS's API page)
+        target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api
+        # Make request
+        request = requests.get(target, headers=self.headers)
+        # Return parsed text
+        return request.text
+
+    def shard_request(self, api: str, shards: Optional[Iterable[str]] = None) -> str:
+        """Returns the raw text from the specified NS api
+        Attaches the given shards to the `q` parameter, joined with `+`
+        """
+        # Prepare api string
+        target = api + "&q="
         # Add shards if they exist
         if shards:
             target += "+".join(shards)
-        request = requests.get(target, headers=self.headers)
-        # Return parsed Element
-        return request.text
+        # Return request
+        return self.request(target)
 
     def xml_request(
-        self, api: str, shards: typing.Optional[typing.Iterable[str]] = None
+        self, api: str, shards: Optional[Iterable[str]] = None
     ) -> etree.Element:
         """Makes a request using self.raw_request and tries to parse the result into XML node"""
-        return etree.fromstring(self.raw_request(api, shards))
-
-    def nation_standard_request(self, nation_name: str) -> NationStandard:
-        """Makes an self.xml_request using 'nation=<nation_name>' and encodes in a NationStandard"""
-        return NationStandard(self.xml_request(f"nation={nation_name}"))
-
-    def nation_shard_text(self, nation_name: str, shard: str) -> str:
-        """Returns the text retrieved from a single shard for a nation"""
-        # XML is returned as a Nation node containing the shard, accesed with [0]
-        text = self.xml_request(f"nation={nation_name}", shards=[shard])[0].text
-        return text if text else ""
+        return etree.fromstring(self.shard_request(api, shards))
 
     def nation(self, nation: str) -> Nation:
         """Returns a Nation object using this requester"""
@@ -262,7 +258,7 @@ class Nation(API):
 
     def standard(self) -> NationStandard:
         """Returns a NationStandard object for this Nation"""
-        return self.requester.nation_standard_request(self.name)
+        return NationStandard(self.requester.xml_request(f"nation={self.name}"))
 
 
 class Region(API):
@@ -385,9 +381,12 @@ def main() -> None:
 
     requester = NSRequester("HN67 API Reader")
 
-    print(requester.raw_request("a=useragent"))
+    print(requester.request("a=useragent"))
 
-    print(requester.wa().shard("members"))
+    citizens = set(requester.wa().shard("members").split(",")) & set(
+        requester.region("10000 islands").shard("nations").split(":")
+    )
+    print(len(citizens))
 
 
 # script-only __main__ paradigm, for testing
