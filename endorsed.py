@@ -21,10 +21,10 @@ API = nsapi.NSRequester("HN67 API Reader")
 # Set target nation to check against
 target = "kuriko"
 # Collect region
-region = API.nation_shard_text(target, "region")
+region = API.nation(target).shard("region")
 
 # Pull target endorsement list
-endorsers = set(API.nation_shard_text(target, "ENDORSEMENTS").split(","))
+endorsers = set(API.nation(target).shard("ENDORSEMENTS").split(","))
 
 # Load downloaded nation file
 nationsXML = API.iterated_nation_dump()

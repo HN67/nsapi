@@ -10,12 +10,9 @@ from typing import Iterable, Tuple
 import datetime
 import time
 
-# Used to create and read caches
-import json
-
 # Import nsapi
 import nsapi
-from nsapi import NationStandard as Nation
+from nsapi import NationStandard
 
 
 # Set logging level
@@ -40,11 +37,11 @@ def unendorsed_nations(
     """
 
     # Collect region
-    region = requester.nation_shard_text(endorser, "region")
+    region = requester.nation(endorser).shard("region")
 
     # Load downloaded nation file
     # Pack into conversion generator to simplify transformations
-    nationDump = (Nation(nation) for nation in requester.iterated_nation_dump())
+    nationDump = (NationStandard(nation) for nation in requester.iterated_nation_dump())
 
     # Pull all nations in the region that are WA members
     # Use generator because we dont need to generate a list that is never used
