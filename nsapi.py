@@ -16,6 +16,9 @@ from typing import Dict, Generator, List, Iterable, Optional
 import json
 import datetime
 
+# Import time for managing ratelimiting
+import time
+
 # Import os for path stuff
 import os
 
@@ -68,6 +71,38 @@ def current_dump_day() -> datetime.date:
     )
 
 
+class RateLimiter:
+    """Class that tracks counts and time to ensure safely staying below ratelimits
+    Developed to work with the NS API rate limit, where NS returns the current
+    number of requests, removing the need to manually count and retire requests.
+    """
+
+    def __init__(self, requestLimit: int, waitPeriod: int):
+
+        self.requestLimit: int = requestLimit
+        self.waitPeriod: int = waitPeriod
+
+        # Timestamp that it will be safe to send another request at
+        self.lockTime: float = 0
+        # Current count, used to engage lock
+        self.count: int = 0
+
+    def set_count(self, count: int) -> None:
+        """Set the count to a number, engages lock if exceeds limit"""
+        # Copy count
+        self.count = count
+        # Check limit, if reached change lock time
+        if self.count >= self.requestLimit:
+            self.lockTime = time.time() + self.waitPeriod
+
+    def wait(self) -> None:
+        """Will wait until it is safe to send another request"""
+        now = time.time()
+        if now < self.lockTime:
+            logging.info("Waiting to avoid ratelimit")
+            time.sleep(self.lockTime - now)
+
+
 class NSRequester:
     """Class to manage making requests from the NS API"""
 
@@ -75,6 +110,9 @@ class NSRequester:
 
         # Save user agent and construct headers object for later use
         self.headers = {"User-Agent": userAgent}
+
+        # Create ratelimiter object
+        self.rateLimiter = RateLimiter(40, 30)
 
         self.nationDumpPath: str = absolute_path("nations.xml.gz")
 
@@ -181,10 +219,14 @@ class NSRequester:
         """
         # Prepare target (attaching the given api to NS's API page)
         target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api
+        # Wait on ratelimiter
+        self.rateLimiter.wait()
         # Make request
-        request = requests.get(target, headers=self.headers)
+        response = requests.get(target, headers=self.headers)
+        # Update ratelimiter
+        self.rateLimiter.set_count(int(response.headers["X-Ratelimit-Requests-Seen"]))
         # Return parsed text
-        return request.text
+        return response.text
 
     def shard_request(self, api: str, shards: Optional[Iterable[str]] = None) -> str:
         """Returns the raw text from the specified NS api
@@ -387,6 +429,9 @@ def main() -> None:
         requester.region("10000 islands").shard("nations").split(":")
     )
     print(len(citizens))
+
+    members = set(requester.wa().shard("members").split(","))
+    print(len(members))
 
 
 # script-only __main__ paradigm, for testing
