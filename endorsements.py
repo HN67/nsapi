@@ -8,7 +8,6 @@ from typing import Iterable, Tuple
 
 # For timing
 import datetime
-import time
 
 # Import nsapi
 import nsapi
@@ -66,17 +65,50 @@ def unendorsed_nations(
 
     # Manually remove false positives
     # Only do 40/30seconds
-    logging.info("Starting cleaning")
-    cleaned = []
-    for index, nation in enumerate(nonendorsed):
-        if index % 40 == 0 and index != 0:
-            logging.info("Waiting to obey ratelimiting")
-            time.sleep(30)
-            logging.info("Continuing cleaning")
-        if endorser not in requester.nation(nation).shard("endorsements"):
-            cleaned.append(nation)
-    logging.info("Done cleaning")
-    nonendorsed = cleaned
+    # logging.info("Starting cleaning")
+    # cleaned = []
+    # for index, nation in enumerate(nonendorsed):
+    #     if index % 40 == 0 and index != 0:
+    #         logging.info("Waiting to obey ratelimiting")
+    #         time.sleep(30)
+    #         logging.info("Continuing cleaning")
+    #     if endorser not in requester.nation(nation).shard("endorsements"):
+    #         cleaned.append(nation)
+    # logging.info("Done cleaning")
+    # nonendorsed = cleaned
+
+    return (region, nonendorsed)
+
+
+def unendorsed_nations_v2(
+    requester: nsapi.NSRequester, endorser: str
+) -> Tuple[str, Iterable[str]]:
+    """Finds all WA members of the nation's region who have not been endorsed
+    Returns a tuple containing the region, and a iterable of unendorsed nations
+    """
+
+    # Retrieve endorser region and endorsement list
+    logging.info("Collecting WA Members")
+    info = requester.nation(endorser).shards("region", "endorsements")
+    region = info["region"]
+    endorsements = set(info["endorsements"].split(","))
+
+    # Retrieve regional citizens by cross referencing residents and wa members
+    citizens = set(requester.wa().shard("members").split(",")) & set(
+        requester.region(region).shard("nations").split(":")
+    )
+
+    # Optionally only check nations who havent endorsed the endorser
+    nations = citizens - endorsements
+
+    # Check each nation's endorsments
+    logging.info("Checking WA members for endorsement")
+    nonendorsed = [
+        nation
+        for nation in nations
+        if endorser not in requester.nation(nation).shard("endorsements")
+    ]
+
     return (region, nonendorsed)
 
 
@@ -90,7 +122,7 @@ def main() -> None:
 
     logging.info("Collecting data")
     logging.info("Current time is %s UTC", datetime.datetime.utcnow())
-    region, unendorsed = unendorsed_nations(API, nation)
+    region, unendorsed = unendorsed_nations_v2(API, nation)
 
     logging.info("Formatting results")
     # Create output display strings
