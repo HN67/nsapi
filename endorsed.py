@@ -5,7 +5,6 @@ import logging
 
 # Import nsapi
 import nsapi
-from nsapi import NationStandard as Nation
 
 # Set logging level
 level = logging.INFO
@@ -16,35 +15,32 @@ logger = logging.getLogger()
 nsapi.logger.setLevel(level=level)
 
 # Setup API
-API = nsapi.NSRequester("HN67 API Reader")
+requester = nsapi.NSRequester("HN67 API Reader")
 
 # Set target nation to check against
 target = "kuriko"
+
 # Collect region
-region = API.nation(target).shard("region")
+region = requester.nation(target).shard("region")
 
 # Pull target endorsement list
-endorsers = set(API.nation(target).shard("ENDORSEMENTS").split(","))
-
-# Load downloaded nation file
-nationsXML = API.iterated_nation_dump()
+endorsers = set(requester.nation(target).shard("endorsements").split(","))
 
 # Pull all nations in the region that are WA members
 logging.info("Collecting %s WA Members", region)
-# Initalize empty list
-waMembers = set()
-# Iterate through xml nodes
-for nationNode in nationsXML:
-    # Convert each node to a NationStandard object
-    nation = Nation(nationNode)
-    # If the nation is in the region and WA, add to list
-    if nation.basic("REGION") == region and nation.basic("UNSTATUS").startswith("WA"):
-        # Add the formatted name
-        waMembers.add(nation.basic("NAME").lower().replace(" ", "_"))
+
+# Pull all world wa nations
+worldWA = set(requester.wa().shard("members").split(","))
+
+# Pull all region nations
+regionNations = set(requester.region(region).shard("nations").split(":"))
+
+# Intersect wa members and region members
+citizens = worldWA & regionNations
 
 logging.info("Comparing WA Member list with target endorsers")
 # Determine WA members who have not endorsed target
-nonendorsers = waMembers - endorsers
+nonendorsers = citizens - endorsers
 
 # Print output in formatted manner
 logging.info("Outputting results\n")
