@@ -282,9 +282,8 @@ class API:
         but this method will only return the empty string, with no warning
         """
         return {
-            shard: node.text if node.text else ""
+            node.tag.lower(): node.text if node.text else ""
             for node in self.requester.xml_request(self._key(), shards)
-            for shard in shards
         }
 
     def shard(self, shard: str) -> str:
