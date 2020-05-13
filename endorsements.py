@@ -63,6 +63,9 @@ def unendorsed_nations(
         or endorser not in nation["ENDORSEMENTS"].text
     ]
 
+    # TODO: update nonendorsed using activity:
+    # https://www.nationstates.net/cgi-bin/api.cgi?q=happenings&view=region.10000_islands&filter=member+move
+
     # Manually remove false positives
     # Only do 40/30seconds
     # logging.info("Starting cleaning")
@@ -122,7 +125,7 @@ def main() -> None:
 
     logging.info("Collecting data")
     logging.info("Current time is %s UTC", datetime.datetime.utcnow())
-    region, unendorsed = unendorsed_nations_v2(API, nation)
+    region, unendorsed = unendorsed_nations(API, nation)
 
     logging.info("Formatting results")
     # Create output display strings

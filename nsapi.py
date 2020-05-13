@@ -328,6 +328,28 @@ class WA(API):
         super().__init__(requester, "wa", council)
 
 
+class Happening:
+    """Class that represents a NS happening.
+    There should be little need to manually instantiate this class,
+    instead instances are returned by the World.happenings method.
+
+    Attributes:
+    self.id (str) - the event ID of the happening
+    self.timestamp (Optional[int]) - the int timestamp the happening occured at
+    self.text (str) - the raw text of the happening
+    """
+
+    def __init__(self, node: etree.Element) -> None:
+        """Parse a happening from an XML format.
+        Expects an EVENT node, as returned by NS api for happenings.
+        (See https://www.nationstates.net/cgi-bin/api.cgi?q=happenings)
+        Does not save a reference to the node.
+        """
+        self.id: str = node.attrib["id"]
+        self.timestamp: Optional[int] = int(node[0].text) if node[0].text else None
+        self.text: str = node[1].text if node[1].text else ""
+
+
 class NationStandard:
     """Wrapper for a Nation Standard XML data provided by NS"""
 
@@ -429,8 +451,7 @@ def main() -> None:
     )
     print(len(citizens))
 
-    members = set(requester.wa().shard("members").split(","))
-    print(len(members))
+    print(requester.world().shard("happenings"))
 
 
 # script-only __main__ paradigm, for testing
