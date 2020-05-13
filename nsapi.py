@@ -334,7 +334,7 @@ class Happening:
     instead instances are returned by the World.happenings method.
 
     Attributes:
-    self.id (str) - the event ID of the happening
+    self.id (int) - the event ID of the happening
     self.timestamp (Optional[int]) - the int timestamp the happening occured at
     self.text (str) - the raw text of the happening
     """
@@ -345,7 +345,7 @@ class Happening:
         (See https://www.nationstates.net/cgi-bin/api.cgi?q=happenings)
         Does not save a reference to the node.
         """
-        self.id: str = node.attrib["id"]
+        self.id: int = int(node.attrib["id"])
         self.timestamp: Optional[int] = int(node[0].text) if node[0].text else None
         self.text: str = node[1].text if node[1].text else ""
 
