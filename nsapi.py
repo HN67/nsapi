@@ -10,7 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Dict, Generator, List, Iterable, Optional
+from typing import Dict, Generator, List, Iterable, Optional, Sequence
 
 # Import json and datetime to create custom cookie
 import json
@@ -228,6 +228,15 @@ class NSRequester:
         # Return parsed text
         return response.text
 
+    def parameter_request(self, **parameters: str) -> str:
+        """Returns the text retrieved from the specified NS api.
+        The api is constructed by passing the given key-value pairs as parameters
+        """
+        # Prepare query string
+        query: str = "&".join(f"{key}={value}" for key, value in parameters.items())
+        # Subcall default request method to use ratelimit, etc
+        return self.request(query)
+
     def shard_request(self, api: str, shards: Optional[Iterable[str]] = None) -> str:
         """Returns the raw text from the specified NS api
         Attaches the given shards to the `q` parameter, joined with `+`
@@ -317,6 +326,11 @@ class World(API):
 
     def _key(self) -> str:
         return ""
+
+    def happenings(self, **parameters: str) -> Sequence[Happening]:
+        """Queries the NS happenings api shard, appending any given parameters.
+        Returns the data as a sequence of Happening objects
+        """
 
 
 class WA(API):
@@ -451,7 +465,7 @@ def main() -> None:
     )
     print(len(citizens))
 
-    print(requester.world().shard("happenings"))
+    print(requester.parameter_request(nation="hn67", q="name"))
 
 
 # script-only __main__ paradigm, for testing

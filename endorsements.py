@@ -121,7 +121,7 @@ def main() -> None:
     # Setup API
     API = nsapi.NSRequester("HN67 API Reader")
     # Set endorser nation to check for
-    nation = "kuriko"
+    nation = "hn67"
 
     logging.info("Collecting data")
     logging.info("Current time is %s UTC", datetime.datetime.utcnow())
