@@ -10,7 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Dict, Generator, List, Iterable, Optional, Sequence
+from typing import Dict, Generator, List, Iterable, Optional
 
 # Import json and datetime to create custom cookie
 import json
@@ -219,6 +219,8 @@ class NSRequester:
         """
         # Prepare target (attaching the given api to NS's API page)
         target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api
+        # Logging
+        logging.info("Requesting %s", target)
         # Wait on ratelimiter
         self.rateLimiter.wait()
         # Make request
@@ -237,23 +239,29 @@ class NSRequester:
         # Subcall default request method to use ratelimit, etc
         return self.request(query)
 
-    def shard_request(self, api: str, shards: Optional[Iterable[str]] = None) -> str:
+    def shard_request(
+        self, shards: Optional[Iterable[str]] = None, **parameters: str
+    ) -> str:
         """Returns the raw text from the specified NS api
         Attaches the given shards to the `q` parameter, joined with `+`
         """
         # Prepare api string
-        target = api + "&q="
-        # Add shards if they exist
+        # Create shard parameter if given
         if shards:
-            target += "+".join(shards)
-        # Return request
-        return self.request(target)
+            return self.parameter_request(**parameters, q="+".join(shards))
+        return self.parameter_request(**parameters)
+        # target = api + "&q="
+        # # Add shards if they exist
+        # if shards:
+        #     target += "+".join(shards)
+        # # Return request
+        # return self.request(target)
 
     def xml_request(
-        self, api: str, shards: Optional[Iterable[str]] = None
+        self, shards: Optional[Iterable[str]] = None, **parameters: str
     ) -> etree.Element:
         """Makes a request using self.raw_request and tries to parse the result into XML node"""
-        return etree.fromstring(self.shard_request(api, shards))
+        return etree.fromstring(self.shard_request(shards=shards, **parameters))
 
     def nation(self, nation: str) -> Nation:
         """Returns a Nation object using this requester"""
@@ -280,19 +288,31 @@ class API:
         self.api = api
         self.name = name
 
-    def _key(self) -> str:
+    def _key(self) -> Dict[str, str]:
         """Determines the first key of the request, encodes the API and name"""
-        return f"{self.api}={self.name}"
+        return {self.api: self.name}
 
-    def shards(self, *shards: str) -> Dict[str, str]:
-        """Naively returns a Dict mapping from the shard name to the text of that element
+    def xml_shards(self, *shards: str, **parameters: str) -> Dict[str, etree.Element]:
+        """Returns a Dict mapping from the shard name to the XML element returned
         Connects to the `<api>=<name>&q=<shards>` page of the api
-        Not all shards are one level deep, and as such have no text,
-        but this method will only return the empty string, with no warning
         """
         return {
-            node.tag.lower(): node.text if node.text else ""
-            for node in self.requester.xml_request(self._key(), shards)
+            node.tag.lower(): node
+            for node in self.requester.xml_request(
+                shards=shards, **self._key(), **parameters
+            )
+        }
+
+    def shards(self, *shards: str, **parameters: str) -> Dict[str, str]:
+        """Naively returns a Dict mapping from the shard name to the text of that element
+        Uses the xml_shards method.
+        Not all shards are one level deep, and as such have no text,
+        but this method will only return the empty string, with no warning.
+        Additional parameters can be passed using keyword arguments.
+        """
+        return {
+            name: node.text if node.text else ""
+            for name, node in self.xml_shards(*shards, **parameters).items()
         }
 
     def shard(self, shard: str) -> str:
@@ -324,13 +344,19 @@ class World(API):
     def __init__(self, requester: NSRequester) -> None:
         super().__init__(requester, "world", "")
 
-    def _key(self) -> str:
-        return ""
+    def _key(self) -> Dict[str, str]:
+        return {}
 
-    def happenings(self, **parameters: str) -> Sequence[Happening]:
+    def happenings(self, **parameters: str) -> Iterable[Happening]:
         """Queries the NS happenings api shard, appending any given parameters.
         Returns the data as a sequence of Happening objects
         """
+        return (
+            Happening(node)
+            for node in self.xml_shards("happenings", **self._key(), **parameters)[
+                "happenings"
+            ]
+        )
 
 
 class WA(API):
@@ -456,7 +482,7 @@ class NationStandard:
 def main() -> None:
     """Main function; only for testing"""
 
-    requester = NSRequester("HN67 API Reader")
+    requester: NSRequester = NSRequester("HN67 API Reader")
 
     print(requester.request("a=useragent"))
 
@@ -466,6 +492,16 @@ def main() -> None:
     print(len(citizens))
 
     print(requester.parameter_request(nation="hn67", q="name"))
+
+    # view=region.10000_islands&filter=member+move
+    print(
+        [
+            happening.text
+            for happening in requester.world().happenings(
+                view="region.10000_islands", filter="member+move"
+            )
+        ]
+    )
 
 
 # script-only __main__ paradigm, for testing
