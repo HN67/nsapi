@@ -61,7 +61,9 @@ def current_dump_day() -> datetime.date:
     """Calculates the latest day available for the data dump.
     A datadump is generated ~2230 PST for that day, so the dump will be considered
     available at 2300 PST or 0700 UTC the next day.
-    Returns a naive date"""
+    Should match the day of the latest archive dump
+    Returns a naive date
+    """
     utc = datetime.datetime.utcnow()
     logging.info("Current time is %s UTC", utc)
     return (
@@ -69,6 +71,22 @@ def current_dump_day() -> datetime.date:
         if utc.time().hour >= 7
         else utc.date() - datetime.timedelta(days=2)
     )
+
+
+def last_dump_timestamp() -> int:
+    """Returns the timestamp that the most recent data dump was generated at
+    Any events after this timestamp were likely not included in the data dump
+    Specifically, corresponds to the last 2200 PST or 0600 UTC
+    """
+    utc = datetime.datetime.utcnow()
+    logging.info("Current time is %s UTC", utc)
+    if utc.hour >= 6:
+        utc = datetime.datetime.combine(utc.date(), datetime.time(hour=6))
+    else:
+        utc = datetime.datetime.combine(
+            utc.date() - datetime.timedelta(days=1), datetime.time(hour=6)
+        )
+    return int(utc.timestamp())
 
 
 class RateLimiter:
@@ -213,9 +231,11 @@ class NSRequester:
         Can take a long time due to respecting NS API ratelimit
         """
 
-    def request(self, api: str) -> str:
+    def request(self, api: str, headers: Dict[str, str] = None) -> requests.Response:
         """Returns the text retrieved from the specified NS api.
         Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>
+        Adds the given headers (if any) to the default headers of the this requester
+        (such as user agent). Any conflicts will prioritize the parameter headers
         """
         # Prepare target (attaching the given api to NS's API page)
         target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api
@@ -223,12 +243,27 @@ class NSRequester:
         logging.info("Requesting %s", target)
         # Wait on ratelimiter
         self.rateLimiter.wait()
+        # Create headers
+        if headers:
+            # Combine dictionaries
+            headers = {**self.headers, **headers}
+        else:
+            headers = self.headers
         # Make request
-        response = requests.get(target, headers=self.headers)
+        response = requests.get(target, headers=headers)
         # Update ratelimiter
         self.rateLimiter.set_count(int(response.headers["X-Ratelimit-Requests-Seen"]))
         # Return parsed text
-        return response.text
+        return response
+
+    def get_autologin(self, nation: str, password: str) -> str:
+        """Attempts to authenticate with the given nation (using the ping shard)
+        and returns the X-Autologin header value of the response if succsessful
+        """
+        response = self.request(
+            f"nation={nation}&q=ping", headers={"X-Password": password}
+        )
+        return response.headers["X-Autologin"]
 
     def parameter_request(self, **parameters: str) -> str:
         """Returns the text retrieved from the specified NS api.
@@ -237,7 +272,7 @@ class NSRequester:
         # Prepare query string
         query: str = "&".join(f"{key}={value}" for key, value in parameters.items())
         # Subcall default request method to use ratelimit, etc
-        return self.request(query)
+        return self.request(query).text
 
     def shard_request(
         self, shards: Optional[Iterable[str]] = None, **parameters: str
@@ -483,25 +518,7 @@ def main() -> None:
     """Main function; only for testing"""
 
     requester: NSRequester = NSRequester("HN67 API Reader")
-
-    print(requester.request("a=useragent"))
-
-    citizens = set(requester.wa().shard("members").split(",")) & set(
-        requester.region("10000 islands").shard("nations").split(":")
-    )
-    print(len(citizens))
-
-    print(requester.parameter_request(nation="hn67", q="name"))
-
-    # view=region.10000_islands&filter=member+move
-    print(
-        [
-            happening.text
-            for happening in requester.world().happenings(
-                view="region.10000_islands", filter="member+move"
-            )
-        ]
-    )
+    print(requester.request("a=useragent").text)
 
 
 # script-only __main__ paradigm, for testing
