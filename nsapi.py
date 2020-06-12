@@ -121,6 +121,16 @@ class RateLimiter:
             time.sleep(self.lockTime - now)
 
 
+def shards_parameter(*shards: str) -> str:
+    """Formats the given shards into a single string to be passed as a parameter"""
+    return "+".join(shards)
+
+
+def as_xml(data: str) -> etree.Element:
+    """Parse the given data as XML and returns the root node"""
+    return etree.fromstring(data)
+
+
 class NSRequester:
     """Class to manage making requests from the NS API"""
 
@@ -231,7 +241,9 @@ class NSRequester:
         Can take a long time due to respecting NS API ratelimit
         """
 
-    def request(self, api: str, headers: Dict[str, str] = None) -> requests.Response:
+    def request(
+        self, api: str, headers: Optional[Dict[str, str]] = None
+    ) -> requests.Response:
         """Returns the text retrieved from the specified NS api.
         Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>
         Adds the given headers (if any) to the default headers of the this requester
@@ -256,26 +268,31 @@ class NSRequester:
         # Return parsed text
         return response
 
-    def get_autologin(self, nation: str, password: str) -> str:
-        """Attempts to authenticate with the given nation (using the ping shard)
-        and returns the X-Autologin header value of the response if succsessful
-        """
-        response = self.request(
-            f"nation={nation}&q=ping", headers={"X-Password": password}
-        )
-        return response.headers["X-Autologin"]
-
-    def parameter_request(self, **parameters: str) -> str:
-        """Returns the text retrieved from the specified NS api.
+    def parameter_request(
+        self, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> requests.Response:
+        """Returns the response retrieved from the specified NS api.
         The api is constructed by passing the given key-value pairs as parameters
         """
         # Prepare query string
         query: str = "&".join(f"{key}={value}" for key, value in parameters.items())
         # Subcall default request method to use ratelimit, etc
-        return self.request(query).text
+        return self.request(query, headers=headers)
+
+    def get_autologin(self, nation: str, password: str) -> str:
+        """Attempts to authenticate with the given nation (using the ping shard)
+        and returns the X-Autologin header value of the response if succsessful
+        """
+        response = self.parameter_request(
+            headers={"X-Password": password}, nation=nation, q="ping"
+        )
+        return response.headers["X-Autologin"]
 
     def shard_request(
-        self, shards: Optional[Iterable[str]] = None, **parameters: str
+        self,
+        shards: Optional[Iterable[str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        **parameters: str,
     ) -> str:
         """Returns the raw text from the specified NS api
         Attaches the given shards to the `q` parameter, joined with `+`
@@ -283,8 +300,10 @@ class NSRequester:
         # Prepare api string
         # Create shard parameter if given
         if shards:
-            return self.parameter_request(**parameters, q="+".join(shards))
-        return self.parameter_request(**parameters)
+            return self.parameter_request(
+                headers=headers, **parameters, q=shards_parameter(*shards)
+            ).text
+        return self.parameter_request(headers=headers, **parameters).text
         # target = api + "&q="
         # # Add shards if they exist
         # if shards:
@@ -292,15 +311,9 @@ class NSRequester:
         # # Return request
         # return self.request(target)
 
-    def xml_request(
-        self, shards: Optional[Iterable[str]] = None, **parameters: str
-    ) -> etree.Element:
-        """Makes a request using self.raw_request and tries to parse the result into XML node"""
-        return etree.fromstring(self.shard_request(shards=shards, **parameters))
-
-    def nation(self, nation: str) -> Nation:
+    def nation(self, nation: str, auth: Optional[Auth] = None) -> Nation:
         """Returns a Nation object using this requester"""
-        return Nation(self, nation)
+        return Nation(self, nation, auth=auth)
 
     def region(self, region: str) -> Region:
         """Returns a Region object using this requester"""
@@ -327,18 +340,40 @@ class API:
         """Determines the first key of the request, encodes the API and name"""
         return {self.api: self.name}
 
-    def xml_shards(self, *shards: str, **parameters: str) -> Dict[str, etree.Element]:
+    def _headers(self) -> Dict[str, str]:
+        """Returns various headers to add to a request, such as authentication"""
+        return {}
+
+    def shards_response(
+        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> requests.Response:
+        """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
+        """
+        # Add extra headers if given
+        if headers:
+            headers = {**self._headers(), **headers}
+        else:
+            headers = self._headers()
+        return self.requester.parameter_request(
+            headers=headers, **self._key(), q=shards_parameter(*shards), **parameters,
+        )
+
+    def shards_xml(
+        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> Dict[str, etree.Element]:
         """Returns a Dict mapping from the shard name to the XML element returned
         Connects to the `<api>=<name>&q=<shards>` page of the api
         """
         return {
             node.tag.lower(): node
-            for node in self.requester.xml_request(
-                shards=shards, **self._key(), **parameters
+            for node in as_xml(
+                self.shards_response(*shards, headers=headers, **parameters,).text
             )
         }
 
-    def shards(self, *shards: str, **parameters: str) -> Dict[str, str]:
+    def shards(
+        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> Dict[str, str]:
         """Naively returns a Dict mapping from the shard name to the text of that element
         Uses the xml_shards method.
         Not all shards are one level deep, and as such have no text,
@@ -347,7 +382,9 @@ class API:
         """
         return {
             name: node.text if node.text else ""
-            for name, node in self.xml_shards(*shards, **parameters).items()
+            for name, node in self.shards_xml(
+                *shards, headers=headers, **parameters
+            ).items()
         }
 
     def shard(self, shard: str) -> str:
@@ -355,15 +392,65 @@ class API:
         return self.shards(shard)[shard]
 
 
+class Auth:
+    """Handles producing headers to authenticate for NS API."""
+
+    def __init__(self, autologin: str):
+        """Must be constructed with an autologin.
+        An autologin can be obtained from a nation and password using
+        NSRequester.get_autologin
+        """
+        # Define autologin attribute
+        self.autologin = autologin
+        self.pin = ""
+
+    def headers(self) -> Dict[str, str]:
+        """Returns authentication headers"""
+        return {"X-Pin": self.pin, "X-Autologin": self.autologin}
+
+    def update(self, response: requests.Response) -> None:
+        """Updates the auth with a response,
+        notably provides it with the X-Pin header
+        """
+        # logging.info("Recieved headers %s", response.headers)
+        # Verify X-Pin is provided. Many times it will not be,
+        # since authenticating with a pin will not return the pin
+        if "X-Pin" in response.headers:
+            self.pin = response.headers["X-Pin"]
+
+
 class Nation(API):
     """Represents a live connection to the API of a Nation on NS"""
 
-    def __init__(self, requester: NSRequester, name: str) -> None:
+    def __init__(
+        self, requester: NSRequester, name: str, auth: Optional[Auth] = None
+    ) -> None:
         super().__init__(requester, "nation", name)
+        self.auth = auth
+
+    def _headers(self) -> Dict[str, str]:
+        """Important headers to add to every request
+        In particular, auth headers
+        """
+        return self.auth.headers() if self.auth else {}
+
+    def shards_response(
+        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> requests.Response:
+        """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
+        """
+        # Inject auth updating, allows using pin
+        logging.info("Making Nation request")
+        response = super().shards_response(*shards, headers=headers, **parameters)
+        if self.auth:
+            self.auth.update(response)
+        return response
 
     def standard(self) -> NationStandard:
         """Returns a NationStandard object for this Nation"""
-        return NationStandard(self.requester.xml_request(f"nation={self.name}"))
+        return NationStandard(
+            as_xml(self.requester.parameter_request(nation=self.name).text)
+        )
 
 
 class Region(API):
@@ -382,15 +469,17 @@ class World(API):
     def _key(self) -> Dict[str, str]:
         return {}
 
-    def happenings(self, **parameters: str) -> Iterable[Happening]:
+    def happenings(
+        self, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> Iterable[Happening]:
         """Queries the NS happenings api shard, appending any given parameters.
         Returns the data as a sequence of Happening objects
         """
         return (
             Happening(node)
-            for node in self.xml_shards("happenings", **self._key(), **parameters)[
-                "happenings"
-            ]
+            for node in self.shards_xml(
+                "happenings", headers=headers, **self._key(), **parameters
+            )["happenings"]
         )
 
 
@@ -519,6 +608,9 @@ def main() -> None:
 
     requester: NSRequester = NSRequester("HN67 API Reader")
     print(requester.request("a=useragent").text)
+    auth = Auth("")
+    nation = requester.nation("hn67", auth)
+    print(nation.shards_response("dossier"))
 
 
 # script-only __main__ paradigm, for testing
