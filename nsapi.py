@@ -10,7 +10,7 @@ import logging
 
 # Import typing for parameter/return typing
 import typing
-from typing import Dict, Generator, List, Iterable, Optional
+from typing import Dict, Generator, List, Iterable, Optional, Set
 
 # Import json and datetime to create custom cookie
 import json
@@ -452,6 +452,11 @@ class Nation(API):
             as_xml(self.requester.parameter_request(nation=self.name).text)
         )
 
+    def dossier(self) -> Dossier:
+        """Returns a Dossier representing the dossier of this nation"""
+        nodes = self.shards_xml("dossier", "rdossier")
+        return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
+
 
 class Region(API):
     """Represents a live connection to the API of a Region on NS"""
@@ -490,6 +495,30 @@ class WA(API):
 
     def __init__(self, requester: NSRequester, council: str = "1") -> None:
         super().__init__(requester, "wa", council)
+
+
+class Dossier:
+    """Class that represents a NS nation's dossier
+    May contain nation, region, or both, records,
+    depending on the XML element used to construct this.
+    Objects are usually obtained from the Nation.dossier method
+
+    Attributes:
+    self.dossier: A collection of nations
+    self.rdossier: A collection of regions
+    """
+
+    def __init__(self, dossier: etree.Element, rdossier: etree.Element) -> None:
+        """Parses DOSSIER and/or RDOSSIER nodes, as returned by NS api nation shards.
+        (See https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=dossier+rdossier)
+        (Requires auth, see https://www.nationstates.net/pages/api.html#authenticating)
+        Does not save references to the nodes
+        """
+        # [R]DOSSIER nodes are simply nodes with nations/regions as children, with names as text
+        self.dossier: Set[str] = set(node.text if node.text else "" for node in dossier)
+        self.rdossier: Set[str] = set(
+            node.text if node.text else "" for node in rdossier
+        )
 
 
 class Happening:
@@ -608,9 +637,6 @@ def main() -> None:
 
     requester: NSRequester = NSRequester("HN67 API Reader")
     print(requester.request("a=useragent").text)
-    auth = Auth("")
-    nation = requester.nation("hn67", auth)
-    print(nation.shards_response("dossier"))
 
 
 # script-only __main__ paradigm, for testing
