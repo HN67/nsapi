@@ -4,7 +4,7 @@
 import logging
 
 # Import typing constructs
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, List, Dict
 
 # For timing
 import datetime
@@ -63,22 +63,49 @@ def unendorsed_nations(
         or endorser not in nation["ENDORSEMENTS"].text
     ]
 
-    # TODO: update nonendorsed using activity:
+    # TDO: update nonendorsed using activity:
     # https://www.nationstates.net/cgi-bin/api.cgi?q=happenings&view=region.10000_islands&filter=member+move
+    # convert current_dump_day to the time the dump was generated as timestamp
+    # and then request happenings since then. page through the happenings using `beforeid`
+    # until empty list is returned, which signifies all happenings
+    # since the timestamp have been retrieved
+    # Consider adding this paging logic to the World class
+    # in the happenings method, check if the limit keyword was given and >100,
+    # if so page until reached
+    # requester.world().happenings(view=f"region.{region}", filter="member+move")
 
-    # Manually remove false positives
-    # Only do 40/30seconds
-    # logging.info("Starting cleaning")
-    # cleaned = []
-    # for index, nation in enumerate(nonendorsed):
-    #     if index % 40 == 0 and index != 0:
-    #         logging.info("Waiting to obey ratelimiting")
-    #         time.sleep(30)
-    #         logging.info("Continuing cleaning")
-    #     if endorser not in requester.nation(nation).shard("endorsements"):
-    #         cleaned.append(nation)
-    # logging.info("Done cleaning")
-    # nonendorsed = cleaned
+    # Sort happenings by keyword
+    # These keywords do not differentiate between all happening types,
+    # (notably arriving and leaving)
+    # but differentiate between formmating types
+    # Prepare a dict of keywords -> list of happenings
+    keywords: Dict[str, List[nsapi.Happening]] = {
+        "relocated": [],  # a nation move to or from the region
+        "admitted": [],  # a nation joined the WA
+        "resigned": [],  # a nation left the WA
+        "other": [],  # a 'other' bin, should only contain application happenings
+    }
+    for happening in requester.world().happenings(
+        view=f"region.{region}", filter="member+move"
+    ):
+        for keyword in keywords:
+            if keyword in happening.text:
+                keywords[keyword].append(happening)
+                break
+        else:
+            keywords["other"].append(happening)
+
+    # Handle happenings
+    # should probably be handled in timestamp ascending order (maybe someone left and rejoined, etc)
+    # relocated: if leaving, remove from unendorsed set (if in it)
+    #            if arriving, check if they have been endorsed
+    #               (maybe collaborate with false positive section)
+    # admitted: check if they have been unendorsed (maybe collaborate)
+    # resigned: remove from unendorsed set
+
+    # Filter false positives
+    # use `endo` filter on happenings of endorser
+    # similar to wa changes/region moves, page through all happenings.
 
     return (region, nonendorsed)
 
