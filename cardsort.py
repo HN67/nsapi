@@ -6,8 +6,9 @@ from typing import Iterable, Mapping, MutableMapping
 # Import core modules
 import logging
 
-# Core library
+# Core library and modules
 import nsapi
+import config
 
 # Set logging level
 level = logging.INFO
@@ -66,7 +67,7 @@ def main() -> None:
     """Main function"""
 
     # Provide proper user agent to api requester
-    requester = nsapi.NSRequester("HN67 API Reader")
+    requester = nsapi.NSRequester(config.userAgent)
 
     # Function arguments, could be connected to command line, etc
     print("Enter the names of nations you want to search.")
