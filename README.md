@@ -13,3 +13,8 @@ Both scripts interact with the daily nation data dump, which involves downloadin
 `cardsort.py` is a relatively finished script, which will prompt for nations and card rarity, and then parse the decks of the specificed nations, producing a csv file. Designed to be run from command line.
 
 `cardsort.py` relies on `config.py` to specify a *UserAgent*, which should at least identify you to NationStates, and ideally reference `HN67` as well.
+
+## Requirements
+
+- Python 3.6+
+- requests
