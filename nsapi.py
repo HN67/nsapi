@@ -428,6 +428,9 @@ class Nation(API):
         super().__init__(requester, "nation", name)
         self.auth = auth
 
+        # Save the nationname, needed to cludged card method
+        self.nationname = name
+
     def _headers(self) -> Dict[str, str]:
         """Important headers to add to every request
         In particular, auth headers
@@ -456,6 +459,22 @@ class Nation(API):
         """Returns a Dossier representing the dossier of this nation"""
         nodes = self.shards_xml("dossier", "rdossier")
         return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
+
+    def deck(self) -> Iterable[Card]:
+        """Returns a iterable of the cards currently owned by this nation"""
+        # for some reason cards are treated quite different by NS api currently
+        # so we cant simply make a shards call. for now we make a direct call
+        # to the requester shards_xml method, since it does not insert the
+        # `nation=name` parameter
+        # this request returns a <CARDS><DECK><CARD/>...</DECK><CARDS> structure,
+        # so we immedietly retrieve the DECK node (which contains multiple CARD nodes)
+        # with [0]
+        deck = as_xml(
+            self.requester.shard_request(
+                shards=["cards", "deck"], nationname=self.nationname
+            )
+        )[0]
+        return [Card(node) for node in deck]
 
 
 class Region(API):
@@ -541,6 +560,23 @@ class Happening:
         self.id: int = int(node.attrib["id"])
         self.timestamp: Optional[int] = int(node[0].text) if node[0].text else None
         self.text: str = node[1].text if node[1].text else ""
+
+
+class Card:
+    """Class that represents a NS trading card.
+    Can be instantiated by id, or is returned by shards such as nation decks
+    """
+
+    def __init__(self, node: etree.Element) -> None:
+        """Parses a Card from XML format.
+        Expects a CARD node, as returned by NS api for nation decks or card info
+        (See https://www.nationstates.net/cgi-bin/api.cgi?q=cards+deck;nationname=testlandia)
+        Does not save a reference to the node.
+        0 or empty string indicate that the given node did not have that data
+        """
+        self.id: int = int(node[0].text) if node[0].text else 0
+        self.category: str = node[1].text if node[1].text else ""
+        self.season: str = node[2].text if node[2].text else ""
 
 
 class NationStandard:
