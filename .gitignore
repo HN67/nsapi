@@ -1,8 +1,9 @@
 # NS datadump compressed xml files
 *.xml.gz
 
-# Local cookie for checking when datadump was downloaded
+# Local cookies and data
 *.json
+*.csv
 
 # Ignore output text files
 endorsements.txt

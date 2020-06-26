@@ -12,6 +12,9 @@ import logging
 import typing
 from typing import Dict, Generator, List, Iterable, Optional, Set
 
+# Import dataclasses for fancier api data objects
+import dataclasses
+
 # Import json and datetime to create custom cookie
 import json
 import datetime
@@ -474,7 +477,7 @@ class Nation(API):
                 shards=["cards", "deck"], nationname=self.nationname
             )
         )[0]
-        return [Card(node) for node in deck]
+        return [Card.from_xml(node) for node in deck]
 
 
 class Region(API):
@@ -562,21 +565,29 @@ class Happening:
         self.text: str = node[1].text if node[1].text else ""
 
 
+@dataclasses.dataclass(frozen=True)
 class Card:
     """Class that represents a NS trading card.
-    Can be instantiated by id, or is returned by shards such as nation decks
+    Can be created from a node, or is returned by shards such as nation decks
     """
 
-    def __init__(self, node: etree.Element) -> None:
+    id: int
+    category: str
+    season: str
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Card:
         """Parses a Card from XML format.
         Expects a CARD node, as returned by NS api for nation decks or card info
         (See https://www.nationstates.net/cgi-bin/api.cgi?q=cards+deck;nationname=testlandia)
         Does not save a reference to the node.
         0 or empty string indicate that the given node did not have that data
         """
-        self.id: int = int(node[0].text) if node[0].text else 0
-        self.category: str = node[1].text if node[1].text else ""
-        self.season: str = node[2].text if node[2].text else ""
+        return cls(
+            int(node[0].text) if node[0].text else 0,
+            node[1].text if node[1].text else "",
+            node[2].text if node[2].text else "",
+        )
 
 
 class NationStandard:

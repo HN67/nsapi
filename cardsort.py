@@ -1,7 +1,7 @@
 """Parses the trading card decks of nations"""
 
 # Import types
-from typing import Iterable, Mapping, MutableMapping, MutableSequence
+from typing import Iterable, Mapping, MutableMapping
 
 # Import core modules
 import logging
@@ -20,14 +20,14 @@ nsapi.logger.setLevel(level=level)
 
 def sorted_cards(
     requester: nsapi.NSRequester, nations: Iterable[str]
-) -> Mapping[str, Mapping[str, Iterable[nsapi.Card]]]:
+) -> Mapping[str, Mapping[str, Mapping[nsapi.Card, int]]]:
     """Searchs the trading card decks of the given nations (by name), and sorts by rarity
-    Returns a mapping with {rarity: {nation: [cards...]}} structure.
+    Returns a mapping with {rarity: {nation: {card: quantity}}} structure.
     Always includes exactly `common`, `uncommon`, `rare`, `ultra-rare`, `epic`, and `legendary`
     """
     # Prepare output structure with rarities
     # empty string key should catch any Card objects that dont have a category for some reason
-    out: MutableMapping[str, MutableMapping[str, MutableSequence[nsapi.Card]]] = {
+    out: MutableMapping[str, MutableMapping[str, MutableMapping[nsapi.Card, int]]] = {
         "common": {},
         "uncommon": {},
         "rare": {},
@@ -46,12 +46,18 @@ def sorted_cards(
             # if for some reason the card doesnt have a category, it should have "" and
             # get placed in that bin
             rarityDict = out[card.category]
-            # creates the nation: list key-value pair if it doesnt exist, otherwise
-            # appends this card id
+            # ensure this nation exists in this rarity bin
             try:
-                rarityDict[nation].append(card)
+                nationDict = rarityDict[nation]
             except KeyError:
-                rarityDict[nation] = [card]
+                rarityDict[nation] = {}
+                nationDict = rarityDict[nation]
+            # creates the card: num key-value pair if it doesnt exist
+            # otherwise, increment the count
+            try:
+                nationDict[card] += 1
+            except KeyError:
+                nationDict[card] = 1
 
     return out
 
@@ -63,16 +69,46 @@ def main() -> None:
     requester = nsapi.NSRequester("HN67 API Reader")
 
     # Function arguments, could be connected to command line, etc
+    print("Enter the names of nations you want to search.")
+    print("Seperate names with a comma, no space (e.g. 'NATION,NATION II,NATION III').")
+    nations = input("Nations: ").split(",")
+
+    print("\nEnter the card rarities you want to view.")
+    print(
+        "Possibile rarities are: 'common', 'uncommon', 'rare', 'ultra-rare', 'epic', 'legendary'."
+    )
+    print("You can provide multiple by seperating with a comma, no space.")
+    print("(e.g. 'common,ultra-rare,legendary')")
+    print("Alternatively, enter nothing to view all rarities.")
+    raritiesInput = input("Rarities: ")
+    if raritiesInput == "":
+        rarities = ["common", "uncommon", "rare", "ultra-rare", "epic", "legendary"]
+    else:
+        rarities = raritiesInput.split(",")
 
     # Actually run the bulk logic
-    data = sorted_cards(requester, ["hn67", "agilhn"])
-    print("Ultra-Rare:")
-    for nation in data["ultra-rare"]:
-        print(f"{nation}:")
-        for card in data["ultra-rare"][nation]:
-            print(
-                f"https://www.nationstates.net/page=deck/card={card.id}/season={card.season}"
-            )
+    data = sorted_cards(requester, nations)
+    # Output the data as a csv file format
+    path = nsapi.absolute_path("cardsort.csv")
+    with open(path, "w") as f:
+        # Write the csv headers
+        print("card, nation, rarity, copies", file=f)
+        # Unpack the (triple?) mapping, which basically sorts for us
+        for rarity, rarityData in data.items():
+            # Only output the rarity if desired
+            if rarity in rarities:
+                for nation, nationData in rarityData.items():
+                    for card, count in nationData.items():
+                        # Write each data in a different column
+                        print(
+                            (
+                                "https://www.nationstates.net/page=deck/"
+                                f"card={card.id}/season={card.season}"
+                                f", {nation}, {rarity}, {count}"
+                            ),
+                            file=f,
+                        )
+    print(f"Outputted to {path}")
 
 
 # Main function convention
