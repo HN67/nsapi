@@ -5,6 +5,7 @@ from typing import Iterable, Mapping, MutableMapping
 
 # Import core modules
 import logging
+import time
 
 # Core library and modules
 import nsapi
@@ -85,7 +86,8 @@ def main() -> None:
     if raritiesInput == "":
         rarities = ["common", "uncommon", "rare", "ultra-rare", "epic", "legendary"]
     else:
-        rarities = raritiesInput.split(",")
+        # rarities are case insensitive
+        rarities = [rarity.lower() for rarity in raritiesInput.split(",")]
 
     # Actually run the bulk logic
     data = sorted_cards(requester, nations)
@@ -110,6 +112,8 @@ def main() -> None:
                             file=f,
                         )
     print(f"Outputted to {path}")
+    # prevents the window from immediately closing if opened standalone
+    time.sleep(2)
 
 
 # Main function convention
