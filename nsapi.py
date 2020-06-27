@@ -42,10 +42,18 @@ logging.basicConfig(level=logging.INFO)
 # Reference logger
 logger = logging.getLogger()
 
+# Determine the root path for downloading and producing files
+# Default on the file location, but if not existant for some reason
+# then fall back on the current working directory
+try:
+    basePath = __file__
+except NameError:
+    basePath = os.getcwd()
+
 
 def absolute_path(path: str) -> str:
     """Returns the absolute path of a given path based on this file"""
-    return os.path.join(os.path.dirname(__file__), path)
+    return os.path.join(os.path.dirname(basePath), path)
 
 
 def download_file(url: str, fileName: str, *, headers: typing.Dict[str, str]) -> None:
