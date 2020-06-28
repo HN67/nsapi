@@ -123,9 +123,9 @@ class RateLimiter:
             time.sleep(self.lockTime - now)
 
 
-def shards_parameter(*shards: str) -> str:
-    """Formats the given shards into a single string to be passed as a parameter"""
-    return "+".join(shards)
+def joined_parameter(*values: str) -> str:
+    """Formats the given values into a single string to be passed as a parameter"""
+    return "+".join(values)
 
 
 def as_xml(data: str) -> etree.Element:
@@ -295,17 +295,17 @@ class NSRequester:
         shards: Optional[Iterable[str]] = None,
         headers: Optional[Dict[str, str]] = None,
         **parameters: str,
-    ) -> str:
-        """Returns the raw text from the specified NS api
+    ) -> requests.Response:
+        """Returns the response from the specified NS api
         Attaches the given shards to the `q` parameter, joined with `+`
         """
         # Prepare api string
         # Create shard parameter if given
         if shards:
             return self.parameter_request(
-                headers=headers, **parameters, q=shards_parameter(*shards)
-            ).text
-        return self.parameter_request(headers=headers, **parameters).text
+                headers=headers, **parameters, q=joined_parameter(*shards)
+            )
+        return self.parameter_request(headers=headers, **parameters)
         # target = api + "&q="
         # # Add shards if they exist
         # if shards:
@@ -357,7 +357,7 @@ class API:
         else:
             headers = self._headers()
         return self.requester.parameter_request(
-            headers=headers, **self._key(), q=shards_parameter(*shards), **parameters,
+            headers=headers, **self._key(), q=joined_parameter(*shards), **parameters,
         )
 
     def shards_xml(
@@ -488,7 +488,7 @@ class Nation(API):
         deck = as_xml(
             self.requester.shard_request(
                 shards=["cards", "deck"], nationname=self.nationname
-            )
+            ).text
         )[0]
         return [Card.from_xml(node) for node in deck]
 
