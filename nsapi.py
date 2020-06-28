@@ -5,39 +5,27 @@ See https://www.nationstates.net/pages/api.html for NS API details
 # Allow for typing using not yet defined classes
 from __future__ import annotations
 
-# Import logging for logging
+# Standard library modules
+# Code quality
 import logging
+from typing import Dict, Generator, Iterable, List, Optional, Set
 
-# Import typing for parameter/return typing
-import typing
-from typing import Dict, Generator, List, Iterable, Optional, Set
-
-# Import dataclasses for fancier api data objects
+# Utility
 import dataclasses
-
-# Import itertools to make certain operations less painful
 import itertools
 
-# Import json and datetime to create custom cookie
-import json
+# Time modules
 import datetime
-
-# Import time for managing ratelimiting
 import time
 
-# Import os for path stuff
+# File management
+import gzip
+import json
 import os
-
-# Import shutil for copying download data
 import shutil
 
-# Import gzip to parse downloaded gz file
-import gzip
-
-# Import etree to parse data
+# Core libraries that support most of this module
 import xml.etree.ElementTree as etree
-
-# Import request to download data
 import requests
 
 # Set logging level
@@ -59,7 +47,7 @@ def absolute_path(path: str) -> str:
     return os.path.join(os.path.dirname(basePath), path)
 
 
-def download_file(url: str, fileName: str, *, headers: typing.Dict[str, str]) -> None:
+def download_file(url: str, fileName: str, *, headers: Dict[str, str]) -> None:
     """Downloads a file from <url> to the location specified by <fileName>"""
     # Open request to url
     logging.info("Starting download of <%s> to <%s>", url, fileName)
