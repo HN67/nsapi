@@ -40,7 +40,10 @@ def unendorsed_nations(
 
     # Load downloaded nation file
     # Pack into conversion generator to simplify transformations
-    nationDump = (NationStandard(nation) for nation in requester.iterated_nation_dump())
+    nationDump = (
+        NationStandard(nation)
+        for nation in requester.dumpManager().iterated_nation_dump()
+    )
 
     # Pull all nations in the region that are WA members
     # Use generator because we dont need to generate a list that is never used

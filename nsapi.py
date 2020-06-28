@@ -8,7 +8,7 @@ from __future__ import annotations
 # Standard library modules
 # Code quality
 import logging
-from typing import Dict, Generator, Iterable, List, Optional, Set
+from typing import Dict, Generator, Iterable, Optional, Set
 
 # Utility
 import dataclasses
@@ -133,16 +133,13 @@ def as_xml(data: str) -> etree.Element:
     return etree.fromstring(data)
 
 
-class NSRequester:
-    """Class to manage making requests from the NS API"""
+class DumpManager:
+    """Class to manage downloading and updating data dumps from NS API"""
 
     def __init__(self, userAgent: str):
 
         # Save user agent and construct headers object for later use
         self.headers = {"User-Agent": userAgent}
-
-        # Create ratelimiter object
-        self.rateLimiter = RateLimiter(40, 30)
 
         self.nationDumpPath: str = absolute_path("nations.xml.gz")
 
@@ -238,10 +235,21 @@ class NSRequester:
                     yield element
                     root.clear()
 
-    def retrieve_region_wa(self, region: str) -> Dict[str, List[str]]:
-        """Collects live endorsement data for an entire region
-        Can take a long time due to respecting NS API ratelimit
-        """
+
+class NSRequester:
+    """Class to manage making requests from the NS API"""
+
+    def __init__(self, userAgent: str):
+
+        # Save user agent and construct headers object for later use
+        self.headers = {"User-Agent": userAgent}
+
+        # Create ratelimiter object
+        self.rateLimiter = RateLimiter(40, 30)
+
+    def dumpManager(self) -> DumpManager:
+        """Returns a DumpManager with the same settings (such as userAgent) as this requester"""
+        return DumpManager(self.headers["User-Agent"])
 
     def request(
         self, api: str, headers: Optional[Dict[str, str]] = None
