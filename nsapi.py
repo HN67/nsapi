@@ -15,6 +15,9 @@ from typing import Dict, Generator, List, Iterable, Optional, Set
 # Import dataclasses for fancier api data objects
 import dataclasses
 
+# Import itertools to make certain operations less painful
+import itertools
+
 # Import json and datetime to create custom cookie
 import json
 import datetime
@@ -504,18 +507,40 @@ class World(API):
     def _key(self) -> Dict[str, str]:
         return {}
 
-    def happenings(
+    def _happenings_root(
         self, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> etree.Element:
+        """Returns the NS API happenings query root element"""
+        return self.shards_xml(
+            "happenings", headers=headers, **self._key(), **parameters
+        )["happenings"]
+
+    def happenings(
+        self,
+        safe: bool = True,
+        headers: Optional[Dict[str, str]] = None,
+        **parameters: str,
     ) -> Iterable[Happening]:
         """Queries the NS happenings api shard, appending any given parameters.
-        Returns the data as a sequence of Happening objects
+        Returns the data as a sequence of Happening objects.
+        If `safe` is true, there is a hard limit of 100 happenings (inherited from NS API).
+        If `safe` is false, it will keep requesting until it receives a response
+        with < 100 happenings, since 100 likely indicates the enforced max.
+        Note that with poorly designed parameters (such as only beforetime),
+        in unsafe mode this method can potentially make a huge number of requests,
+        essentially freezing the program.
         """
-        return (
-            Happening(node)
-            for node in self.shards_xml(
-                "happenings", headers=headers, **self._key(), **parameters
-            )["happenings"]
-        )
+        root = self._happenings_root(headers=headers, **parameters)
+        rootList = [root]
+        # 100 is the max number of happenings that the request will return
+        # however, this is a bit of magic number and should be fixed
+        while not safe and len(root) == 100:
+            root = self._happenings_root(
+                headers=headers, **parameters, beforeid=str(Happening(root[-1]).id)
+            )
+            rootList.append(root)
+        # https://docs.python.org/2/library/itertools.html#itertools.chain
+        return (Happening(node) for node in itertools.chain.from_iterable(rootList))
 
 
 class WA(API):
