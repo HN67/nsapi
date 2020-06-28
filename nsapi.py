@@ -463,6 +463,20 @@ class Nation(API):
             self.auth.update(response)
         return response
 
+    def login(self, autologin: str) -> Auth:
+        """Replaces this Nation's Auth with a new one based on the autologin.
+        Returns the Auth to potentially allow for other API objects to use.
+        Does not actually make an API request.
+        """
+        self.auth = Auth(autologin)
+        return self.auth
+
+    def ping(self) -> bool:
+        """Makes a ping API request to this nation, registering a login (for activity)."""
+        # consider 200 to be successful
+        response = self.shards_response("ping")
+        return response.status_code == 200
+
     def standard(self) -> NationStandard:
         """Returns a NationStandard object for this Nation"""
         return NationStandard(
