@@ -369,8 +369,8 @@ class API:
             headers = {**self._headers(), **headers}
         else:
             headers = self._headers()
-        return self.requester.parameter_request(
-            headers=headers, **self._key(), q=joined_parameter(*shards), **parameters,
+        return self.requester.shard_request(
+            shards, headers=headers, **self._key(), **parameters,
         )
 
     def shards_xml(
@@ -504,6 +504,55 @@ class Nation(API):
             ).text
         )[0]
         return [Card.from_xml(node) for node in deck]
+
+    def issues(self) -> Iterable[Issue]:
+        """Returns an iterable of the Issues this nation currently has.
+        Requires authentication.
+        """
+        # Make request
+        issues = self.shards_xml("issues")["issues"]
+        # Return boxed Issues (may crash badly if authentication failed)
+        return [Issue.from_xml(node) for node in issues]
+
+    def answer_issue(self, issue: int, option: int) -> etree.Element:
+        """Answers the specified issue (by id) with the specified option (by id).
+        Requires authentication.
+        Returns the XML describing the results of the action.
+        Note that the XML node returned is called ISSUE, but is fundamentally
+        different than the ISSUE node that represents a comprehensive issue and is
+        used to create a Issue object, rather, it contains data on the effects of
+        the chosen issue option.
+        """
+        issueEffect = self.shards_xml(c="issue", issue=str(issue), option=str(option))[
+            "issue"
+        ]
+        return issueEffect
+
+    def execute_command(self, command: str, **parameters: str) -> etree.Element:
+        """Executes the specified command, using any given parameters.
+        Automatically handles the double-request method required by the NS API.
+        This method should not be used for answering issues, since
+        that does not use the double-request method.
+        Returns the root xml node returned by the succsesful command.
+        """
+        # Prepare command
+        # Need to specify no extra headers cause otherwise its funky
+        # even though the headers param is supposed to be optional
+        # (the ** splat causes the funkiness i think)
+        prepare = self.shards_response(
+            c=command, headers=None, mode="prepare", **parameters
+        )
+        # response Returns <NATION id="name"><SUCCESS/ERROR></SUCCESS/ERROR></NATION> format
+        # we should probably throw an error if SUCCESS is not returned,
+        # but too lazy / not sure what kind of error to throw
+        # (should maybe create a custom tree?)
+        node = as_xml(prepare.text)[0]
+        token = node.text if node.text else ""
+        # Execute command using the returned token
+        execute = self.shards_response(
+            c=command, headers=None, mode="execute", token=token, **parameters
+        )
+        return as_xml(execute.text)
 
 
 class Region(API):
