@@ -1,13 +1,11 @@
 # NS datadump compressed xml files
 *.xml.gz
 
-# Local cookies and data
-*.json
+# By default, ignore any data files
 *.csv
-
-# Ignore output text files
-endorsements.txt
-endorsed.txt
+*.json
+*.txt
+*.xml
 
 # Ignore pycache
 __pycache__/
