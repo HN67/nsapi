@@ -8,7 +8,7 @@ from __future__ import annotations
 # Standard library modules
 # Code quality
 import logging
-from typing import Dict, Generator, Iterable, Optional, Set
+from typing import Dict, Generator, Iterable, Mapping, Optional, Sequence, Set
 
 # Utility
 import dataclasses
@@ -131,6 +131,11 @@ def joined_parameter(*values: str) -> str:
 def as_xml(data: str) -> etree.Element:
     """Parse the given data as XML and returns the root node"""
     return etree.fromstring(data)
+
+
+def clean_format(string: str) -> str:
+    """Casts the string to lowercase and replaces spaces with underscores"""
+    return string.lower().replace(" ", "_")
 
 
 class DumpManager:
@@ -630,6 +635,40 @@ class Card:
             int(node[0].text) if node[0].text else 0,
             node[1].text if node[1].text else "",
             node[2].text if node[2].text else "",
+        )
+
+
+@dataclasses.dataclass()
+class Issue:
+    """Class that represents a NS Issue"""
+
+    id: int
+    title: str
+    text: str
+    author: str
+    editors: Sequence[str]
+    pic1: str
+    pic2: str
+    options: Mapping[int, str]
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Issue:
+        """Creates an Issue from an XML ISSUE node
+        (See https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=issues)
+        """
+        return cls(
+            id=int(node.attrib["id"]),
+            title=node[0].text if node[0].text else "",
+            text=node[1].text if node[1].text else "",
+            author=node[2].text if node[2].text else "",
+            editors=node[3].text.split(", ") if node[3].text else [],
+            pic1=node[4].text if node[4].text else "",
+            pic2=node[5].text if node[5].text else "",
+            options={
+                int(sub.attrib["id"]): (sub.text if sub.text else "")
+                for sub in node[6:]
+                if sub.tag == "OPTION"
+            },
         )
 
 
