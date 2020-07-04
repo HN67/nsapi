@@ -89,28 +89,55 @@ def main() -> None:
         # rarities are case insensitive
         rarities = [rarity.lower() for rarity in raritiesInput.split(",")]
 
+    print("Enter whether to collect duplicates of a card on the same nation.")
+    print("Enter 'yes'/'y' to collect duplicates, or 'no' (or anything else) to not.")
+    print("'no' will cause each card to have its own row, even if they are duplicates.")
+    collectInput = input("Collect duplicates? ").lower()
+    if collectInput in ("yes", "y"):
+        collect = True
+        print("Will collect duplicates.")
+    else:
+        collect = False
+        print("Will not collect duplicates.")
+
     # Actually run the bulk logic
     data = sorted_cards(requester, nations)
     # Output the data as a csv file format
     path = nsapi.absolute_path("cardsort.csv")
     with open(path, "w") as f:
         # Write the csv headers
-        print("card, nation, rarity, copies", file=f)
+        headers = "card, nation, rarity"
+        # Only add copies header if collecting
+        if collect:
+            headers += ", copies"
+        print(headers, file=f)
         # Unpack the (triple?) mapping, which basically sorts for us
         for rarity, rarityData in data.items():
             # Only output the rarity if desired
             if rarity in rarities:
                 for nation, nationData in rarityData.items():
                     for card, count in nationData.items():
+                        # Unroll duplicates if collect option is false
+                        if not collect:
+                            for _ in range(count):
+                                print(
+                                    (
+                                        "https://www.nationstates.net/page=deck/"
+                                        f"card={card.id}/season={card.season}"
+                                        f", {nation}, {rarity}"
+                                    ),
+                                    file=f,
+                                )
                         # Write each data in a different column
-                        print(
-                            (
-                                "https://www.nationstates.net/page=deck/"
-                                f"card={card.id}/season={card.season}"
-                                f", {nation}, {rarity}, {count}"
-                            ),
-                            file=f,
-                        )
+                        else:
+                            print(
+                                (
+                                    "https://www.nationstates.net/page=deck/"
+                                    f"card={card.id}/season={card.season}"
+                                    f", {nation}, {rarity}, {count}"
+                                ),
+                                file=f,
+                            )
     print(f"Outputted to {path}")
     # prevents the window from immediately closing if opened standalone
     time.sleep(2)
