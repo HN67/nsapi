@@ -93,22 +93,27 @@ def main() -> None:
     with open(nsapi.absolute_path(dataPath), "r", newline="") as file:
         csvReader = csv.reader(file)
         for row in csvReader:
-            # We need to prepare or find the nation object first (of the sender)
-            nation = nsapi.clean_format(row[1])
-            if nation not in nations:
-                nations[nation] = requester.nation(nation)
-            # Update the nation auth using given password (or autologin)
-            # the password is the 4 column, but is not neccesary
-            # remember, 4th column == 3rd index
-            if len(row) >= 4:
-                # Autologin is True if the passwords are actually autologins
-                if autologin:
-                    nations[nation].login(row[3])
-                else:
-                    nations[nation].auth = nsapi.Auth(password=row[3])
-            # Now we can delegate to the function
-            send_card(link=row[0], sender=nations[nation], receiver=row[2])
-            print(f"Sent {row[0]} from {nation} to {row[2]}")
+            try:
+                # We need to prepare or find the nation object first (of the sender)
+                nation = nsapi.clean_format(row[1])
+                if nation not in nations:
+                    nations[nation] = requester.nation(nation)
+                # Update the nation auth using given password (or autologin)
+                # the password is the 4 column, but is not neccesary
+                # remember, 4th column == 3rd index
+                if len(row) >= 4:
+                    # Autologin is True if the passwords are actually autologins
+                    if autologin:
+                        nations[nation].login(row[3])
+                    else:
+                        nations[nation].auth = nsapi.Auth(password=row[3])
+                # Now we can delegate to the function
+                send_card(link=row[0], sender=nations[nation], receiver=row[2])
+                print(f"Sent {row[0]} from {nation} to {row[2]}")
+            # Broad error cause we want to catch anything, so the whole
+            # program doesnt crash. logs the message
+            except Exception as exception:  # pylint: disable=broad-except
+                print("Failed to send a card. Error:", exception)
 
 
 if __name__ == "__main__":
