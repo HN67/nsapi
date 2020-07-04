@@ -108,6 +108,7 @@ def main() -> None:
                     nations[nation].auth = nsapi.Auth(password=row[3])
             # Now we can delegate to the function
             send_card(link=row[0], sender=nations[nation], receiver=row[2])
+            print(f"Sent {row[0]} from {nation} to {row[2]}")
 
 
 if __name__ == "__main__":
