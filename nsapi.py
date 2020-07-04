@@ -410,28 +410,50 @@ class API:
 class Auth:
     """Handles producing headers to authenticate for NS API."""
 
-    def __init__(self, autologin: str):
-        """Must be constructed with an autologin.
+    def __init__(self, autologin: Optional[str] = None, password: Optional[str] = None):
+        """Can be constructed using at least one of an autologin or password.
+        For security, autologin is recommended.
         An autologin can be obtained from a nation and password using
         NSRequester.get_autologin
         """
-        # Define autologin attribute
+        # Must provide at least either autologin
+        if autologin is None and password is None:
+            raise ValueError("Auth must be provided with one of autologin or password")
+
+        # Define attributes
+        # Transform None to "" so that the headers can still be constructed,
+        # they will just not authenticate
+        if not autologin:
+            autologin = ""
         self.autologin = autologin
+
         self.pin = ""
+
+        if not password:
+            password = ""
+
+        self.password = password
 
     def headers(self) -> Dict[str, str]:
         """Returns authentication headers"""
-        return {"X-Pin": self.pin, "X-Autologin": self.autologin}
+        return {
+            "X-Pin": self.pin,
+            "X-Autologin": self.autologin,
+            "X-Password": self.password,
+        }
 
     def update(self, response: requests.Response) -> None:
         """Updates the auth with a response,
         notably provides it with the X-Pin header
         """
         # logging.info("Recieved headers %s", response.headers)
-        # Verify X-Pin is provided. Many times it will not be,
-        # since authenticating with a pin will not return the pin
+        # If a pin or autologin is returned, save it.
+        # Autologin is provided when authenticating with password
+        # Pin should be provided when authenticating with password/autologin
         if "X-Pin" in response.headers:
             self.pin = response.headers["X-Pin"]
+        if "X-Autologin" in response.headers:
+            self.autologin = response.headers["X-Autologin"]
 
 
 class Nation(API):
@@ -528,6 +550,16 @@ class Nation(API):
         ]
         return issueEffect
 
+    def gift_card(self, cardid: int, season: int, to: str) -> None:
+        """Attempts to gift the specified card (by id and season)
+        to the receiving nation (by name 'to').
+        Requires authentication.
+        May badly fail if the sending nation does not have sufficient bank.
+        """
+        self.execute_command(
+            command="giftcard", cardid=str(cardid), season=str(season), to=to
+        )
+
     def execute_command(self, command: str, **parameters: str) -> etree.Element:
         """Executes the specified command, using any given parameters.
         Automatically handles the double-request method required by the NS API.
@@ -547,6 +579,11 @@ class Nation(API):
         # but too lazy / not sure what kind of error to throw
         # (should maybe create a custom tree?)
         node = as_xml(prepare.text)[0]
+        if node.tag != "SUCCESS":
+            raise ValueError(
+                f"Command 'command={command}' {parameters} was not succesful."
+                f" Got message: '{node.text}'"
+            )
         token = node.text if node.text else ""
         # Execute command using the returned token
         execute = self.shards_response(
@@ -687,6 +724,7 @@ class Card:
         )
 
 
+# TODO fix this, apparently some issues dont have pic1/pic2, which completely breaks the options
 @dataclasses.dataclass()
 class Issue:
     """Class that represents a NS Issue"""
