@@ -71,9 +71,28 @@ def main() -> None:
     requester = nsapi.NSRequester(config.userAgent)
 
     # Function arguments, could be connected to command line, etc
-    print("Enter the names of nations you want to search.")
+
+    # Get nations
+    nations = []
+
+    print("Enter the name of the file to load nations from.")
+    print("Nation names in the file can be divided by commas and lines.")
+    print("If you dont wont to load from a file, just press enter.")
+    fileName = input("File name: ")
+    if fileName != "":
+        # Read each line, and split on ,
+        with open(nsapi.absolute_path(fileName), "r") as file:
+            for line in file:
+                nations.extend(line.strip().split(","))
+
+    print("\nEnter the names of additional nations you want to search.")
     print("Seperate names with a comma, no space (e.g. 'NATION,NATION II,NATION III').")
-    nations = input("Nations: ").split(",")
+    extraNations = input("Nations: ")
+    # If they enter nothing, we dont want to add an empty string
+    if extraNations != "":
+        nations.extend(extraNations.split(","))
+
+    print(f"\n Checking the following nations: {nations}.")
 
     print("\nEnter the card rarities you want to view.")
     print(
