@@ -130,7 +130,12 @@ def joined_parameter(*values: str) -> str:
 
 def as_xml(data: str) -> etree.Element:
     """Parse the given data as XML and returns the root node"""
-    return etree.fromstring(data)
+    try:
+        return etree.fromstring(data)
+    except etree.ParseError as error:
+        raise ValueError(
+            f"Tried to parse malformed data as XML. Error: {error}, Got data: '{data}'"
+        )
 
 
 def clean_format(string: str) -> str:
