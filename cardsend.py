@@ -98,10 +98,7 @@ def main() -> None:
                 nation = nsapi.clean_format(row[1])
                 if nation not in nations:
                     nations[nation] = requester.nation(nation)
-                # Update the nation auth using given password (or autologin)
-                # the password is the 4 column, but is not neccesary
-                # remember, 4th column == 3rd index
-                if len(row) >= 4:
+                    # Update the nation auth using given password (or autologin)
                     # Autologin is True if the passwords are actually autologins
                     if autologin:
                         nations[nation].login(row[3])
