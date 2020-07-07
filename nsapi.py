@@ -505,6 +505,29 @@ class Nation(API):
         response = self.shards_response("ping")
         return response.status_code == 200
 
+    def get_autologin(self) -> str:
+        """Returns the autologin for this nation.
+        If this Nation's Auth already has an autologin, it is returned,
+        otherwise an authenticated request is made to retrieve it.
+        """
+        # The lack of autologin is represented by empty string
+        if self.auth:
+            # Retrieve autologin if neccesary
+            if self.auth.autologin == "":
+                # Ping will cause this Nation to run shards_response, updating the auth
+                success = self.ping()
+                # If ping unsuccseful, raise informative message
+                if not success:
+                    raise ValueError(
+                        "Authentication failed, probably incorrect password."
+                    )
+            # Return autologin
+            return self.auth.autologin
+        # Not authenticated at all, raise error probably
+        raise TypeError(
+            "Nation object does not have an Auth, can't retrieve autologin."
+        )
+
     def standard(self) -> NationStandard:
         """Returns a NationStandard object for this Nation"""
         return NationStandard(
