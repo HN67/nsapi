@@ -92,35 +92,56 @@ def last_dump_timestamp() -> int:
 
 
 class RateLimiter:
-    """Class that tracks counts and time to ensure safely staying below ratelimits
+    """
+    Class that keeps track of counts and time to ensure safely staying below a ratelimit.
+    The update method will "lock" the ratelimiter for a certain amount of time based on conditions,
+    and the wait method will cause a (blocking) delay until the lock expires.
     Developed to work with the NS API rate limit, where NS returns the current
     number of requests, removing the need to manually count and retire requests.
+    However, this class can be used for any ratelimit task, especially simple ones.
+    .update should be called after each action, and .wait before each action.
     """
 
-    def __init__(self, requestLimit: int, waitPeriod: int):
+    def __init__(self, requestLimit: int, cooldownPeriod: float, spacePeriod: float):
+        """Constructs a RateLimiter using direct arguments.
+        requestLimit: The maximum number of requests to allow; meeting this target with the count in
+        .update will cause the ratelimiter to lock for the cooldownPeriod.
+        cooldownPeriod: The period (in seconds) to wait if limit is reached.
+        spacePeriod: The period (in seconds) to lock by default after each update.
+        (Unless cooldown is engaged)
+        """
 
         self.requestLimit: int = requestLimit
-        self.waitPeriod: int = waitPeriod
+        self.cooldownPeriod: float = cooldownPeriod
+        self.spacePeriod: float = spacePeriod
 
         # Timestamp that it will be safe to send another request at
         self.lockTime: float = 0
         # Current count, used to engage lock
         self.count: int = 0
 
-    def set_count(self, count: int) -> None:
-        """Set the count to a number, engages lock if exceeds limit"""
-        # Copy count
-        self.count = count
-        # Check limit, if reached change lock time
+    def update(self, count: Optional[int]) -> None:
+        """Updates the ratelimiter, usually updating the lock.
+        Optionally takes a count to check against the maximum limit,
+        engaging the cooldown if neccesary.
+        """
+        # Copy count if provided
+        if count:
+            self.count = count
+        # Check limit, if reached wait for the full cooldown
         if self.count >= self.requestLimit:
-            self.lockTime = time.time() + self.waitPeriod
+            self.lockTime = time.time() + self.cooldownPeriod
+        # Otherwise just lock for the space period
+        else:
+            self.lockTime = time.time() + self.spacePeriod
 
     def wait(self) -> None:
         """Will wait until it is safe to send another request"""
         now = time.time()
         if now < self.lockTime:
-            logging.info("Waiting to avoid ratelimit")
-            time.sleep(self.lockTime - now)
+            diff = self.lockTime - now
+            logging.debug("Waiting %ss to avoid ratelimit", diff)
+            time.sleep(diff)
 
 
 def joined_parameter(*values: str) -> str:
@@ -255,7 +276,9 @@ class NSRequester:
         self.headers = {"User-Agent": userAgent}
 
         # Create ratelimiter object
-        self.rateLimiter = RateLimiter(40, 30)
+        self.rateLimiter = RateLimiter(
+            requestLimit=49, cooldownPeriod=35, spacePeriod=0.65
+        )
 
     def dumpManager(self) -> DumpManager:
         """Returns a DumpManager with the same settings (such as userAgent) as this requester"""
@@ -271,20 +294,20 @@ class NSRequester:
         """
         # Prepare target (attaching the given api to NS's API page)
         target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api
-        # Logging
-        logging.info("Requesting %s", target)
-        # Wait on ratelimiter
-        self.rateLimiter.wait()
         # Create headers
         if headers:
             # Combine dictionaries
             headers = {**self.headers, **headers}
         else:
             headers = self.headers
+        # Wait on ratelimiter
+        self.rateLimiter.wait()
+        # Logging
+        logging.info("Requesting %s", target)
         # Make request
         response = requests.get(target, headers=headers)
         # Update ratelimiter
-        self.rateLimiter.set_count(int(response.headers["X-Ratelimit-Requests-Seen"]))
+        self.rateLimiter.update(int(response.headers["X-Ratelimit-Requests-Seen"]))
         # Return parsed text
         return response
 
