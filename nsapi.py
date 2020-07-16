@@ -8,7 +8,19 @@ from __future__ import annotations
 # Standard library modules
 # Code quality
 import logging
-from typing import Dict, Generator, Iterable, Mapping, Optional, Sequence, Set
+from typing import (
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    Optional,
+    Sequence,
+    Set,
+    TypeVar,
+)
 
 # Utility
 import dataclasses
@@ -775,7 +787,6 @@ class Card:
         )
 
 
-# TODO fix this, apparently some issues dont have pic1/pic2, which completely breaks the options
 @dataclasses.dataclass()
 class Issue:
     """Class that represents a NS Issue"""
@@ -794,18 +805,20 @@ class Issue:
         """Creates an Issue from an XML ISSUE node
         (See https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=issues)
         """
+        parse = NodeParse(node)
         return cls(
             id=int(node.attrib["id"]),
-            title=node[0].text if node[0].text else "",
-            text=node[1].text if node[1].text else "",
-            author=node[2].text if node[2].text else "",
-            editors=node[3].text.split(", ") if node[3].text else [],
-            pic1=node[4].text if node[4].text else "",
-            pic2=node[5].text if node[5].text else "",
+            title=parse.simple("TITLE"),
+            text=parse.simple("TEXT"),
+            author=parse.simple("AUTHOR"),
+            editors=(
+                parse.simple("EDITOR").split(", ") if parse.simple("EDITOR") else []
+            ),
+            pic1=parse.simple("PIC1") if parse.has_name("PIC1") else "",
+            pic2=parse.simple("PIC2") if parse.has_name("PIC2") else "",
             options={
-                int(sub.attrib["id"]): (sub.text if sub.text else "")
-                for sub in node[6:]
-                if sub.tag == "OPTION"
+                int(child.attrib["id"]): content(child)
+                for child in parse.from_name("OPTION")
             },
         )
 
@@ -897,6 +910,166 @@ class NationStandard:
         # No child with key was found since loop didnt return
         # Raise error
         raise ValueError(f"Child with tag <{key}> not found in node {self}")
+
+
+@dataclasses.dataclass()
+class Officer:
+    """Class that represents a Officer for a region,
+    and the related available data.
+    """
+
+    nation: str  # Name of officer
+    office: str  # Name of office
+    authority: str  # Authority permissions (each letter is a perm)
+    time: int  # Timestamp they were appointed at
+    by: str  # Who appointed the officer
+    order: str  # Position in officer list on NS
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Officer:
+        """Method that parses a Officer object from
+        an OFFICER xml node, as contained by the OFFICERS shard.
+        """
+        data = label_children(node)
+        return cls(
+            nation=content(data["NATION"]),
+            office=content(data["OFFICE"]),
+            authority=content(data["AUTHORITY"]),
+            time=int(content(data["TIME"])),
+            by=content(data["BY"]),
+            order=content(data["ORDER"]),
+        )
+
+
+@dataclasses.dataclass()
+class Embassy:
+    """Class that represents the data of an embassy for a Region."""
+
+    region: str
+    status: str
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Embassy:
+        """Method that parses a Embassy object from a EMBASSY XML node"""
+        return cls(
+            region=content(node),
+            status=node.attrib["type"] if "type" in node.attrib else "open",
+        )
+
+
+@dataclasses.dataclass()
+class RegionStandard:
+    """Class that represents the API standard data for a Region.
+    Mostly used as the object returned by the region dump.
+    """
+
+    name: str
+    factbook: str
+
+    numnations: int
+    nations: Sequence[str]
+
+    delegate: str
+    delegateVotes: int
+    delegateAuth: str
+
+    founder: str
+    founderAuth: str
+
+    officers: Sequence[Officer]
+
+    power: str
+    flag: str
+    embassies: Sequence[Embassy]
+    lastUpdate: int
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> RegionStandard:
+        """Parses standard Region data from XML format"""
+        shards = label_children(node)
+        return cls(
+            name=content(shards["NAME"]),
+            factbook=content(shards["FACTBOOK"]),
+            numnations=int(content(shards["NUMNATIONS"])),
+            nations=content(shards["NATIONS"]).split(":"),
+            delegate=content(shards["DELEGATE"]),
+            delegateVotes=int(content(shards["DELEGATEVOTES"])),
+            delegateAuth=content(shards["DELEGATEAUTH"]),
+            founder=content(shards["FOUNDER"]),
+            founderAuth=content(shards["FOUNDERAUTH"]),
+            officers=sequence(node=shards["OFFICERS"], key=Officer.from_xml),
+            power=content(shards["POWER"]),
+            flag=content(shards["FLAG"]),
+            embassies=sequence(node=shards["EMBASSIES"], key=Embassy.from_xml),
+            lastUpdate=int(content(shards["LASTUPDATE"])),
+        )
+
+
+# # XMLTransformer/Parser logic
+# """Tools for describing the transformation from XML to Python"""
+
+T = TypeVar("T")
+
+
+class NodeParse:
+    """Class to ease the transformation from XML data to a Python object."""
+
+    def __init__(self, node: etree.Element) -> None:
+        """Wraps a root node"""
+        self.node = node
+
+        child_tags: MutableMapping[str, MutableSequence[etree.Element]] = {}
+        for child in node:
+            if child.tag in child_tags:
+                child_tags[child.tag].append(child)
+            else:
+                child_tags[child.tag] = [child]
+
+        # 'Freeze' the child tags attribute so that it appears immutable
+        self.child_tags: Mapping[str, Sequence[etree.Element]] = child_tags
+
+    def has_name(self, name: str) -> bool:
+        """Checks whether the given name is a tag of one of the child nodes."""
+        return name in self.child_tags
+
+    def from_name(self, name: str) -> Sequence[etree.Element]:
+        """Returns a sequence of all nodes that have
+        the given parameter as a tag.
+        Runs in O(1) time since a map is pre-created.
+        Raises KeyError if the tag doesnt exist.
+        """
+        return self.child_tags[name]
+
+    def first(self, name: str) -> etree.Element:
+        """Returns the first node with the given tag.
+        O(1) time complexity.
+        """
+        return self.from_name(name)[0]
+
+    def simple(self, name: str) -> str:
+        """Returns the text content of the first subnode with a matching tag"""
+        return content(self.first(name))
+
+
+def label_children(node: etree.Element) -> Mapping[str, etree.Element]:
+    """Returns a mapping from node tag name to node
+    for each child node of the parameter.
+    Note that if there are multiple children with the same tag,
+    the last one will overwrite previous ones in the returned map.
+    """
+    return {child.tag: child for child in node}
+
+
+def content(node: etree.Element) -> str:
+    """Function to parse simple tags that contain the data as text"""
+    return node.text if node.text else ""
+
+
+def sequence(node: etree.Element, key: Callable[[etree.Element], T]) -> Sequence[T]:
+    """Traverses the subnodes of a given node,
+    retrieving the result from the key function for each child.
+    """
+    return [key(sub) for sub in node]
 
 
 def main() -> None:
