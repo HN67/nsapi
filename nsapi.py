@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import (
     Callable,
+    Container,
     Dict,
     Generator,
     Iterable,
@@ -181,100 +182,127 @@ class DumpManager:
 
     def __init__(self, userAgent: str):
 
+        # Aliases for intended dumps
+        self.dumpNodes = {
+            "regions": "REGION",
+            "nations": "NATION",
+            "cardlist_S1": "CARD",
+            "cardlist_S2": "CARD",
+        }
+
         # Save user agent and construct headers object for later use
         self.headers = {"User-Agent": userAgent}
 
-        self.nationDumpPath: str = absolute_path("nations.xml.gz")
+    def resolve(self, name: str, location: str = None) -> str:
+        """Returns a path based on name and location.
+        If location is None (or not provided), returns `absolute_path({name}.xml.gz)`,
+        otherwise returns location.
+        """
+        return location if location else absolute_path(f"{name}.xml.gz")
 
-    def download_nation_dump(self) -> None:
-        """Downloads the compressed nation dump"""
+    def download(self, name: str, location: str = None) -> None:
+        """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`.
+        Saves to the given location path, defaults to `absolute_path({name}.xml.gz)`.
+        """
         download_file(
-            "https://www.nationstates.net/pages/nations.xml.gz",
-            self.nationDumpPath,
+            f"https://www.nationstates.net/pages/{name}.xml.gz",
+            self.resolve(name, location),
             headers=self.headers,
         )
 
-    def update_nation_dump(self) -> None:
-        """Downloads the compressed nation dump only if it is outdated or doesnt exist"""
-
-        logging.info("Attempting to retrieve nations data dump")
-
+    def update(self, name: str, location: str = None) -> None:
+        """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`
+        only if certain conditions are met, i.e. the file doesn't already exist
+        or it is outdated. (New dumps are available by 2300 PST).
+        """
         # Notify of downloading
-        logging.info("Checking cookie and downloading dump if needed")
-
+        logging.info("Checking dump timestamp marker.")
         try:
-            # Try loading cookie
-            with open(absolute_path("cookie.json"), "r") as f:
-                # Expected to contain dump_timestamp
-                cookie = json.load(f)
+            # Try loading marker
+            with open(absolute_path("marker.json"), "r") as f:
+                marker = json.load(f)
         except FileNotFoundError:
-            # Download if cookie does not exist
-            # Write to the file
-            logging.info(
-                "Cookie does not exist, creating current cookie and downloading dump"
-            )
-            self.download_nation_dump()
-            # Create cookie
-            cookie = {"dump_timestring": current_dump_day().isoformat()}
+            # Download if marker does not exist
+            logging.info("Marker file does not exist, downloading file.")
+            self.download(name, location)
+            # Create marker
+            marker = {name: current_dump_day().isoformat()}
         else:
             # Check timestamp, redownload data if outdated
             if (
-                "dump_timestring" not in cookie
-                or datetime.date.fromisoformat(cookie["dump_timestring"])
-                < current_dump_day()
+                name not in marker
+                or datetime.date.fromisoformat(marker[name]) < current_dump_day()
             ):
-                logging.info("Cookie show outdated timestring, redownloading dump")
+                logging.info("Marker shows outdated timestamp, redownloading file.")
                 # Write to the file
-                self.download_nation_dump()
+                self.download(name, location)
                 # Update timestamp
-                cookie["dump_timestring"] = current_dump_day().isoformat()
+                marker[name] = current_dump_day().isoformat()
             else:
                 # Verify that dump exists
-                if not os.path.isfile(self.nationDumpPath):
-                    logging.info(
-                        "Cookie is not outdated but dump does not exist, so downloading"
-                    )
-                    self.download_nation_dump()
+                if not os.path.isfile(self.resolve(name, location)):
+                    logging.info("File does not exist, downloading.")
+                    self.download(name, location)
 
-        # Save the cookie
-        with open(absolute_path("cookie.json"), "w") as f:
-            json.dump(cookie, f)
+        # Save the marker
+        with open(absolute_path("marker.json"), "w") as f:
+            json.dump(marker, f)
 
-    def retrieve_nation_dump(self) -> etree.Element:
-        """Returns the XML root node data of the daily nation data dump, only downloads if needed"""
+    def retrieve(self, name: str, location: str = None) -> etree.Element:
+        """Returns the XML root node of the given dump,
+        looking in the specified location (defaults to `absolute_path({name}.xml.gz)`).
+        Downloads if neccesary.
+        """
+        # Ensure dump is available.
+        self.update(name, location)
 
-        # Update data dump
-        self.update_nation_dump()
-
-        # Notify of start of parsing
         logging.info("Parsing XML tree")
-
         # Attempt to load the data
-        with gzip.open(self.nationDumpPath) as dump:
+        with gzip.open(self.resolve(name, location)) as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
         logging.info("XML document retrieval and parsing complete")
         return xml
 
-    def iterated_nation_dump(self) -> Generator[etree.Element, None, None]:
-        """A generator that iterates through the nations in the data dump"""
+    def retrieve_iterator(
+        self, name: str, location: str = None, tags: Container[str] = None,
+    ) -> Generator[etree.Element, None, None]:
+        """Iteratively traverses the dump,
+        without storing the entirety in memory simultaneously.
+        Will only yield nodes who's tag is in the given container.
+        If `tags` is none, attempts to pull a tag from .dumpNodes;
+        if that also fails, every node is returned (including a empty root node).
+        For normal dumps, the default is usually the desired behavior.
+        """
+        # Ensure dump is available
+        self.update(name, location)
 
-        # Update data dump
-        self.update_nation_dump()
+        # Setup tags, to have defaults, etc
+        if not tags:
+            # Find default with dumpNodes, if in existance
+            try:
+                tags = {self.dumpNodes[name]}
+            except KeyError:
+                pass
 
-        logging.info("Starting iterative XML tree parse")
-
+        logging.info("Iteratively parsing XML")
         # Attempt to load the data
-        with gzip.open(self.nationDumpPath) as dump:
-            # Define iterator
+        with gzip.open(self.resolve(name, location)) as dump:
+
+            # Looking for start events allows us to retrieve
+            # the starting, parent, element using the `next()` call.
             iterator = etree.iterparse(dump, events=("start", "end"))
-            # Get root
+            # We get the root so that we can clear from it, removing
+            # xml nodes references after they have been yielded.
             _, root = next(iterator)
 
             # Yield elements
             for event, element in iterator:
-                if event == "end" and element.tag == "NATION":
+                # `end` signifies the element is fully parsed
+                # the right conjunct is true if tags is None
+                # or the element tag is in the set
+                if event == "end" and ((not tags) or element.tag in tags):
                     yield element
                     root.clear()
 
@@ -835,6 +863,7 @@ class NationStandard:
         "CATEGORY",
         "UNSTATUS",
         "ENDORSEMENTS",
+        "ISSUES_ANSWERED",
         "FREEDOM",
         "REGION",
         "POPULATION",
