@@ -306,6 +306,24 @@ class DumpManager:
                     yield element
                     root.clear()
 
+    def nations(self, location: str = None) -> Generator[NationStandard, None, None]:
+        """Iteratively parses each nation in the most recent dump.
+        Checks for the dump in the given location, which defaults to `nations.xml.gz`.
+        """
+        return (
+            NationStandard.from_xml(node)
+            for node in self.retrieve_iterator("nations", location)
+        )
+
+    def regions(self, location: str = None) -> Generator[RegionStandard, None, None]:
+        """Iteratively parses each region in the most recent dump.
+        Checks for the dump in the given location, which defaults to `regions.xml.gz`.
+        """
+        return (
+            RegionStandard.from_xml(node)
+            for node in self.retrieve_iterator("regions", location)
+        )
+
 
 class NSRequester:
     """Class to manage making requests from the NS API"""
@@ -899,6 +917,13 @@ class NationStandard:
         """Wrapper for NATION XML node povided by NS Standard Nation API"""
         # Reference node
         self.node = node
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> NationStandard:
+        """Creates a NationStandard using a XML NATION node,
+        as seen in the data dump.
+        """
+        return cls(node)
 
     def __getitem__(self, key: str) -> etree.Element:
         """Attempts to retrieve a Element, sepcified by tag name"""
