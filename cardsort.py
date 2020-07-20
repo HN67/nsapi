@@ -22,14 +22,16 @@ nsapi.logger.setLevel(level=level)
 
 def sorted_cards(
     requester: nsapi.NSRequester, nations: Iterable[str]
-) -> Mapping[str, Mapping[str, Mapping[nsapi.Card, int]]]:
+) -> Mapping[str, Mapping[str, Mapping[nsapi.CardIdentifier, int]]]:
     """Searchs the trading card decks of the given nations (by name), and sorts by rarity
     Returns a mapping with {rarity: {nation: {card: quantity}}} structure.
     Always includes exactly `common`, `uncommon`, `rare`, `ultra-rare`, `epic`, and `legendary`
     """
     # Prepare output structure with rarities
     # empty string key should catch any Card objects that dont have a category for some reason
-    out: MutableMapping[str, MutableMapping[str, MutableMapping[nsapi.Card, int]]] = {
+    out: MutableMapping[
+        str, MutableMapping[str, MutableMapping[nsapi.CardIdentifier, int]]
+    ] = {
         "common": {},
         "uncommon": {},
         "rare": {},

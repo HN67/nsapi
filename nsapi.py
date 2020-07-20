@@ -428,6 +428,10 @@ class NSRequester:
         """Returns a WA object using this requester"""
         return WA(self, council)
 
+    def card(self, cardid: int, season: str) -> Card:
+        """Returns a Card object using this requester"""
+        return Card(self, cardid, season)
+
 
 class API:
     """Represents a live connection to the API of a NS model"""
@@ -620,7 +624,7 @@ class Nation(API):
         nodes = self.shards_xml("dossier", "rdossier")
         return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
 
-    def deck(self) -> Iterable[Card]:
+    def deck(self) -> Iterable[CardIdentifier]:
         """Returns a iterable of the cards currently owned by this nation"""
         # for some reason cards are treated quite different by NS api currently
         # so we cant simply make a shards call. for now we make a direct call
@@ -634,7 +638,7 @@ class Nation(API):
                 shards=["cards", "deck"], nationname=self.nationname
             ).text
         )[0]
-        return [Card.from_xml(node) for node in deck]
+        return [CardIdentifier.from_xml(node) for node in deck]
 
     def issues(self) -> Iterable[Issue]:
         """Returns an iterable of the Issues this nation currently has.
@@ -714,6 +718,9 @@ class World(API):
     def __init__(self, requester: NSRequester) -> None:
         super().__init__(requester, "world", "")
 
+        # Maximum number of happenings returned by happenings shard in one response
+        self.happeningsResponseLimit = 100
+
     def _key(self) -> Dict[str, str]:
         return {}
 
@@ -744,7 +751,7 @@ class World(API):
         rootList = [root]
         # 100 is the max number of happenings that the request will return
         # however, this is a bit of magic number and should be fixed
-        while not safe and len(root) == 100:
+        while not safe and len(root) == self.happeningsResponseLimit:
             root = self._happenings_root(
                 headers=headers, **parameters, beforeid=str(Happening(root[-1]).id)
             )
@@ -808,9 +815,72 @@ class Happening:
         self.text: str = node[1].text if node[1].text else ""
 
 
+class Card(API):
+    """NS API object for card-related requests"""
+
+    def __init__(self, requester: NSRequester, cardid: int, season: str) -> None:
+        """A Card is identified by its id and the season."""
+        # Kinda messy here. We could pass `"cardid"` and `cardid` as the api and name,
+        # but still need to inject season somehow, and it would probably be more confusing
+        # if the two were split up, so both are jammed in the overridden _key method
+        # Should API be extended to handle multiple keys? maybe, maybe not.
+        super().__init__(requester, "card", "")
+
+        self.id = cardid
+        self.season = season
+
+        # The maximum number of trades returned by the trade shard in one request
+        self.tradeResponseLimit = 50
+
+    # Injected into super .shard_response as parameters
+    def _key(self) -> Dict[str, str]:
+        return {"cardid": str(self.id), "season": self.season}
+
+    def shards_response(
+        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> requests.Response:
+        # Injects an extra shard, i.e. `card`
+        return super().shards_response("card", *shards, headers=headers, **parameters)
+
+    def _trades_root(
+        self, headers: Optional[Dict[str, str]] = None, **parameters: str
+    ) -> etree.Element:
+        """Returns the NS API trades query root element"""
+        return self.shards_xml("trades", headers=headers, **parameters)["trades"]
+
+    def trades(
+        self,
+        safe: bool = True,
+        headers: Optional[Dict[str, str]] = None,
+        **parameters: str,
+    ) -> Iterable[Trade]:
+        """Queries the NS trades api shard of this card, appending any given parameters.
+        Returns the data as a sequence of Trade objects.
+        If `safe` is true, there is a hard limit of 50 trades (inherited from NS API).
+        If `safe` is false, it will keep requesting until it receives a response
+        with < 50 trades, since 50 likely indicates the enforced max.
+        Omitting a lower bound (i.e. beforetime) will likely cause it to return
+        all historical trades, which could potentially be a large number of requests,
+        blocking the program.
+        """
+        root = self._trades_root(headers=headers, **parameters)
+        rootList = [root]
+        while not safe and len(root) == self.tradeResponseLimit:
+            root = self._trades_root(
+                headers=headers,
+                **parameters,
+                beforetime=str(Trade.from_xml(root[-1]).timestamp),
+            )
+            rootList.append(root)
+        # https://docs.python.org/2/library/itertools.html#itertools.chain
+        return (
+            Trade.from_xml(node) for node in itertools.chain.from_iterable(rootList)
+        )
+
+
 @dataclasses.dataclass(frozen=True)
-class Card:
-    """Class that represents a NS trading card.
+class CardIdentifier:
+    """Class that identifies a NS trading card.
     Can be created from a node, or is returned by shards such as nation decks
     """
 
@@ -819,7 +889,7 @@ class Card:
     season: str
 
     @classmethod
-    def from_xml(cls, node: etree.Element) -> Card:
+    def from_xml(cls, node: etree.Element) -> CardIdentifier:
         """Parses a Card from XML format.
         Expects a CARD node, as returned by NS api for nation decks or card info
         (See https://www.nationstates.net/cgi-bin/api.cgi?q=cards+deck;nationname=testlandia)
@@ -827,9 +897,119 @@ class Card:
         0 or empty string indicate that the given node did not have that data
         """
         return cls(
-            int(node[0].text) if node[0].text else 0,
-            node[1].text if node[1].text else "",
-            node[2].text if node[2].text else "",
+            id=int(node[0].text) if node[0].text else 0,
+            category=node[1].text if node[1].text else "",
+            season=node[2].text if node[2].text else "",
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class CardInfo:
+    """Class that contains info on a NS Card.
+    (Such as https://www.nationstates.net/cgi-bin/api.cgi?q=card+info;cardid=1;season=1).
+    """
+
+    id: int
+    category: str
+    season: str
+
+    flag: str
+    government: str
+    marketValue: float
+    name: str
+    region: str
+
+    slogan: str
+    classification: str
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> CardInfo:
+        """Constructs a CardInfo object from a XML CARD node.
+        See https://www.nationstates.net/cgi-bin/api.cgi?q=card+info;cardid=1;season=1
+        """
+        data = NodeParse(node)
+        return cls(
+            id=int(data.simple("CARDID")),
+            category=data.simple("CATEGORY"),
+            season=data.simple("SEASON"),
+            flag=data.simple("FLAG"),
+            government=data.simple("GOVT"),
+            marketValue=int(data.simple("MARKET_VALUE")),
+            name=data.simple("NAME"),
+            region=data.simple("REGION"),
+            slogan=data.simple("SLOGAN"),
+            classification=data.simple("TYPE"),
+        )
+
+    def identifier(self) -> CardIdentifier:
+        """Returns a CardIdentifier that is a subset of this CardInfo.
+        Creates the CardIdentifier by copying the respective attributes from
+        this CardInfo.
+        """
+        return CardIdentifier(id=self.id, category=self.category, season=self.season)
+
+
+@dataclasses.dataclass(frozen=True)
+class Trade:
+    """Class that represents the trade of a NS trading card"""
+
+    buyer: str
+    seller: str
+
+    price: float
+    timestamp: int
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Trade:
+        """Constructs a Trade from a XML TRADE node, as seen in
+        https://www.nationstates.net/cgi-bin/api.cgi?q=card+trades;cardid=1;season=1
+        """
+        data = NodeParse(node)
+        return cls(
+            buyer=data.simple("BUYER"),
+            seller=data.simple("SELLER"),
+            price=0 if data.simple("PRICE") == "" else float(data.simple("PRICE")),
+            timestamp=int(data.simple("TIMESTAMP")),
+        )
+
+
+@dataclasses.dataclass()
+class DeckInfo:
+    """Class that contains the info returned by the deck info shard.
+    (i.e. https://www.nationstates.net/cgi-bin/api.cgi?q=cards+info;nationname=testlandia)
+    """
+
+    bank: int
+    deckCapacity: int
+    deckValue: int
+
+    id: int
+
+    lastPackOpened: int
+    lastValued: int
+
+    name: str
+    numCards: int
+    rank: int
+    regionRank: int
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> DeckInfo:
+        """Creates a DeckInfo object using a XML node, such as returned by
+        https://www.nationstates.net/cgi-bin/api.cgi?q=cards+info;nationname=testlandia
+        """
+        data = NodeParse(node)
+        return cls(
+            bank=int(data.simple("BANK")),
+            deckCapacity=int(data.simple("DECK_CAPACITY_RAW")),
+            deckValue=int(data.simple("DECK_VALUE")),
+            id=int(data.simple("ID")),
+            lastPackOpened=int(data.simple("LAST_PACK_OPENED")),
+            lastValued=int(data.simple("LAST_VALUED")),
+            name=data.simple("NAME"),
+            numCards=int(data.simple("NUM_CARDS")),
+            rank=int(data.simple("RANK")),
+            regionRank=int(data.simple("REGION_RANK")),
         )
 
 
