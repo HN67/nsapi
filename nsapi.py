@@ -210,6 +210,16 @@ class DumpManager:
             headers=self.headers,
         )
 
+    def verify(self, name: str, location: str = None) -> None:
+        """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`
+        if it does not exist at the specified location
+        ( which defaults to {name}.xml.gz in the same directory).
+        """
+        # Simple check and then download
+        if not os.path.isfile(self.resolve(name, location)):
+            logging.info("File does not exist, downloading.")
+            self.download(name, location)
+
     def update(self, name: str, location: str = None) -> None:
         """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`
         only if certain conditions are met, i.e. the file doesn't already exist
@@ -240,9 +250,7 @@ class DumpManager:
                 marker[name] = current_dump_day().isoformat()
             else:
                 # Verify that dump exists
-                if not os.path.isfile(self.resolve(name, location)):
-                    logging.info("File does not exist, downloading.")
-                    self.download(name, location)
+                self.verify(name, location)
 
         # Save the marker
         with open(absolute_path("marker.json"), "w") as f:
@@ -251,10 +259,7 @@ class DumpManager:
     def retrieve(self, name: str, location: str = None) -> etree.Element:
         """Returns the XML root node of the given dump,
         looking in the specified location (defaults to `absolute_path({name}.xml.gz)`).
-        Downloads if neccesary.
         """
-        # Ensure dump is available.
-        self.update(name, location)
 
         logging.info("Parsing XML tree")
         # Attempt to load the data
@@ -275,8 +280,6 @@ class DumpManager:
         if that also fails, every node is returned (including a empty root node).
         For normal dumps, the default is usually the desired behavior.
         """
-        # Ensure dump is available
-        self.update(name, location)
 
         # Setup tags, to have defaults, etc
         if not tags:
@@ -306,19 +309,37 @@ class DumpManager:
                     yield element
                     root.clear()
 
-    def nations(self, location: str = None) -> Generator[NationStandard, None, None]:
+    def nations(
+        self, location: str = None, update: bool = True
+    ) -> Generator[NationStandard, None, None]:
         """Iteratively parses each nation in the most recent dump.
         Checks for the dump in the given location, which defaults to `nations.xml.gz`.
+        If `update` is true (the default), the dump will be redownloaded if it is outdated,
+        otherwise it will only be downloaded if it doesnt exist.
         """
+        if update:
+            self.update("nations", location)
+        else:
+            self.verify("nations", location)
+
         return (
             NationStandard.from_xml(node)
             for node in self.retrieve_iterator("nations", location)
         )
 
-    def regions(self, location: str = None) -> Generator[RegionStandard, None, None]:
+    def regions(
+        self, location: str = None, update: bool = True
+    ) -> Generator[RegionStandard, None, None]:
         """Iteratively parses each region in the most recent dump.
         Checks for the dump in the given location, which defaults to `regions.xml.gz`.
+        If `update` is true (the default), the dump will be redownloaded if it is outdated,
+        otherwise it will only be downloaded if it doesnt exist.
         """
+        if update:
+            self.update("regions", location)
+        else:
+            self.verify("regions", location)
+
         return (
             RegionStandard.from_xml(node)
             for node in self.retrieve_iterator("regions", location)
