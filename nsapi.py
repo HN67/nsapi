@@ -263,7 +263,7 @@ class DumpManager:
 
         logging.info("Parsing XML tree")
         # Attempt to load the data
-        with gzip.open(self.resolve(name, location)) as dump:
+        with gzip.open(self.resolve(name, location), "rt") as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
@@ -291,7 +291,7 @@ class DumpManager:
 
         logging.info("Iteratively parsing XML")
         # Attempt to load the data
-        with gzip.open(self.resolve(name, location)) as dump:
+        with gzip.open(self.resolve(name, location), "rt") as dump:
 
             # Looking for start events allows us to retrieve
             # the starting, parent, element using the `next()` call.
@@ -343,6 +343,21 @@ class DumpManager:
         return (
             RegionStandard.from_xml(node)
             for node in self.retrieve_iterator("regions", location)
+        )
+
+    def cards(
+        self, season: str, location: str = None
+    ) -> Generator[CardStandard, None, None]:
+        """Iteratively parses each card in the specified season dump.
+        Checks for the dump in the given location, which defaults to `cardlist_S{season}.xml.gz`.
+        Will download if not found (but wont update every day since the list is static).
+        """
+        name = f"cardlist_S{season}"
+        self.verify(name, location)
+
+        return (
+            CardStandard.from_xml(node)
+            for node in self.retrieve_iterator(name, location)
         )
 
 
@@ -906,7 +921,7 @@ class CardIdentifier:
     """
 
     id: int
-    category: str
+    rarity: str
     season: str
 
     @classmethod
@@ -919,7 +934,7 @@ class CardIdentifier:
         """
         return cls(
             id=int(node[0].text) if node[0].text else 0,
-            category=node[1].text if node[1].text else "",
+            rarity=node[1].text if node[1].text else "",
             season=node[2].text if node[2].text else "",
         )
 
@@ -931,7 +946,7 @@ class CardInfo:
     """
 
     id: int
-    category: str
+    rarity: str
     season: str
 
     flag: str
@@ -951,7 +966,7 @@ class CardInfo:
         data = NodeParse(node)
         return cls(
             id=int(data.simple("CARDID")),
-            category=data.simple("CATEGORY"),
+            rarity=data.simple("CATEGORY"),
             season=data.simple("SEASON"),
             flag=data.simple("FLAG"),
             government=data.simple("GOVT"),
@@ -967,7 +982,52 @@ class CardInfo:
         Creates the CardIdentifier by copying the respective attributes from
         this CardInfo.
         """
-        return CardIdentifier(id=self.id, category=self.category, season=self.season)
+        return CardIdentifier(id=self.id, rarity=self.rarity, season=self.season)
+
+
+@dataclasses.dataclass(frozen=True)
+class CardStandard:
+    """Class that contains the info on a card that is included in a data dump."""
+
+    id: int
+    name: str
+    rarity: str
+
+    classification: str
+    motto: str
+    region: str
+
+    government: str
+
+    flag: str
+    description: str
+
+    badges: Sequence[str]
+    trophies: Mapping[str, int]
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> CardStandard:
+        """Constructs a CardStandard using a CARD element from the cards dump,
+        see https://www.nationstates.net/pages/api.html#dumps and
+        https://www.nationstates.net/pages/cardlist_S2.xml.gz.
+        """
+        data = NodeParse(node)
+        return cls(
+            id=int(data.simple("ID")),
+            name=data.simple("NAME"),
+            rarity=data.simple("CARDCATEGORY"),
+            classification=data.simple("TYPE"),
+            motto=data.simple("MOTTO"),
+            region=data.simple("REGION"),
+            government=data.simple("CATEGORY"),
+            flag=data.simple("FLAG"),
+            description=data.simple("DESCRIPTION"),
+            badges=sequence(data.first("BADGES"), key=content),
+            trophies={
+                child.get("type", default=""): int(content(child))
+                for child in data.first("TROPHIES")
+            },
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1109,7 +1169,8 @@ class NationStandard:
         "RELIGION",
         "FACTBOOKS",
         "DISPATCHES",
-        "CARDCATEGORY",
+        "DBID",
+        # also, just fix this entire class
     ]
     # Transpose the tag_list into into a dictionary
     tag_map = {tag: index for index, tag in enumerate(tag_list)}

@@ -49,7 +49,7 @@ def sorted_cards(
             # We dont wrap the out[] indexing in a try, since there should never be a error:
             # if for some reason the card doesnt have a category, it should have "" and
             # get placed in that bin
-            rarityDict = out[card.category]
+            rarityDict = out[card.rarity]
             # ensure this nation exists in this rarity bin
             try:
                 nationDict = rarityDict[nation]
