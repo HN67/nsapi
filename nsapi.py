@@ -263,7 +263,7 @@ class DumpManager:
 
         logging.info("Parsing XML tree")
         # Attempt to load the data
-        with gzip.open(self.resolve(name, location), "rt") as dump:
+        with gzip.open(self.resolve(name, location)) as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
@@ -291,7 +291,7 @@ class DumpManager:
 
         logging.info("Iteratively parsing XML")
         # Attempt to load the data
-        with gzip.open(self.resolve(name, location), "rt") as dump:
+        with gzip.open(self.resolve(name, location)) as dump:
 
             # Looking for start events allows us to retrieve
             # the starting, parent, element using the `next()` call.
@@ -351,6 +351,8 @@ class DumpManager:
         """Iteratively parses each card in the specified season dump.
         Checks for the dump in the given location, which defaults to `cardlist_S{season}.xml.gz`.
         Will download if not found (but wont update every day since the list is static).
+        Note that the automatic download from the NS API will likely not work, since it contains
+        malformed XML and characters.
         """
         name = f"cardlist_S{season}"
         self.verify(name, location)
