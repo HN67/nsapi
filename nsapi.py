@@ -662,6 +662,16 @@ class Nation(API):
         nodes = self.shards_xml("dossier", "rdossier")
         return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
 
+    def cards_xml(self, *shards: str) -> Mapping[str, etree.Element]:
+        """Seperate method to make requests to the cards apis associated with a nation,
+        since its different than the nation api.
+        """
+        # The cards are actually attached to
+        # the world (or no) api, so we take advantage of that.
+        return self.requester.world().shards_xml(
+            "cards", *shards, nationname=self.nationname
+        )
+
     def deck(self) -> Iterable[CardIdentifier]:
         """Returns a iterable of the cards currently owned by this nation"""
         # for some reason cards are treated quite different by NS api currently
@@ -677,6 +687,10 @@ class Nation(API):
             ).text
         )[0]
         return [CardIdentifier.from_xml(node) for node in deck]
+
+    def deck_info(self) -> DeckInfo:
+        """Returns a DeckInfo object containing the deck info of this nation"""
+        return DeckInfo.from_xml(self.cards_xml("info")["info"])
 
     def issues(self) -> Iterable[Issue]:
         """Returns an iterable of the Issues this nation currently has.
@@ -1062,14 +1076,14 @@ class DeckInfo:
     (i.e. https://www.nationstates.net/cgi-bin/api.cgi?q=cards+info;nationname=testlandia)
     """
 
-    bank: int
+    bank: float
     deckCapacity: int
-    deckValue: int
+    deckValue: float
 
     id: int
 
-    lastPackOpened: int
-    lastValued: int
+    lastPackOpened: Optional[int]
+    lastValued: Optional[int]
 
     name: str
     numCards: int
@@ -1083,12 +1097,16 @@ class DeckInfo:
         """
         data = NodeParse(node)
         return cls(
-            bank=int(data.simple("BANK")),
+            bank=float(data.simple("BANK")),
             deckCapacity=int(data.simple("DECK_CAPACITY_RAW")),
-            deckValue=int(data.simple("DECK_VALUE")),
+            deckValue=float(data.simple("DECK_VALUE")),
             id=int(data.simple("ID")),
-            lastPackOpened=int(data.simple("LAST_PACK_OPENED")),
-            lastValued=int(data.simple("LAST_VALUED")),
+            lastPackOpened=int(data.simple("LAST_PACK_OPENED"))
+            if data.simple("LAST_PACK_OPENED")
+            else None,
+            lastValued=int(data.simple("LAST_VALUED"))
+            if data.simple("LAST_VALUED")
+            else None,
             name=data.simple("NAME"),
             numCards=int(data.simple("NUM_CARDS")),
             rank=int(data.simple("RANK")),
@@ -1395,6 +1413,8 @@ def main() -> None:
 
     requester: NSRequester = NSRequester("HN67 API Reader")
     print(requester.request("a=useragent").text)
+
+    print(requester.nation("aech_en").deck_info())
 
 
 # script-only __main__ paradigm, for testing
