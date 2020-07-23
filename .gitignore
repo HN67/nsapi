@@ -7,6 +7,11 @@
 *.txt
 *.xml
 
+# Include certain data files
+!legendaryCards.json
+!cardlist_S1.xml.gz
+!cardlist_S2.xml.gz
+
 # Ignore pycache
 __pycache__/
 
