@@ -4,14 +4,13 @@
 import logging
 
 # Import typing constructs
-from typing import Iterable, Tuple, List, Dict
+from typing import Iterable, Tuple
 
 # For timing
 import datetime
 
 # Import nsapi
 import nsapi
-from nsapi import NationStandard
 
 
 # Set logging level
@@ -40,10 +39,7 @@ def unendorsed_nations(
 
     # Load downloaded nation file
     # Pack into conversion generator to simplify transformations
-    nationDump = (
-        NationStandard(nation)
-        for nation in requester.dumpManager().iterated_nation_dump()
-    )
+    nationDump = requester.dumpManager().nations()
 
     # Pull all nations in the region that are WA members
     # Use generator because we dont need to generate a list that is never used
@@ -51,66 +47,65 @@ def unendorsed_nations(
     waMembers = [
         nation
         for nation in nationDump
-        if nation.basic("REGION") == region
-        and nation.basic("UNSTATUS").startswith("WA")
+        if nation.region == region and nation.WAStatus.startswith("WA")
     ]
 
     # Pull nations who are not endorsed
     logging.info("Collecting WA members who have not been endorsed")
     nonendorsed = [
         # Save name string, converting to lowercase, underscore format
-        clean_format(nation.basic("NAME"))
+        clean_format(nation.name)
         for nation in waMembers
         # Check if unendorsed by checking endorsements
-        if nation["ENDORSEMENTS"].text is None
-        or endorser not in nation["ENDORSEMENTS"].text
+        if endorser not in nation.endorsements
     ]
 
-    # TDO: update nonendorsed using activity:
-    # https://www.nationstates.net/cgi-bin/api.cgi?q=happenings&view=region.10000_islands&filter=member+move
-    # convert current_dump_day to the time the dump was generated as timestamp
-    # and then request happenings since then. page through the happenings using `beforeid`
-    # until empty list is returned, which signifies all happenings
-    # since the timestamp have been retrieved
-    # Consider adding this paging logic to the World class
-    # in the happenings method, check if the limit keyword was given and >100,
-    # if so page until reached
-    # requester.world().happenings(view=f"region.{region}", filter="member+move")
-
-    # Sort happenings by keyword
-    # These keywords do not differentiate between all happening types,
-    # (notably arriving and leaving)
-    # but differentiate between formmating types
-    # Prepare a dict of keywords -> list of happenings
-    keywords: Dict[str, List[nsapi.Happening]] = {
-        "relocated": [],  # a nation move to or from the region
-        "admitted": [],  # a nation joined the WA
-        "resigned": [],  # a nation left the WA
-        "other": [],  # a 'other' bin, should only contain application happenings
-    }
-    for happening in requester.world().happenings(
-        view=f"region.{region}", filter="member+move"
-    ):
-        for keyword in keywords:
-            if keyword in happening.text:
-                keywords[keyword].append(happening)
-                break
-        else:
-            keywords["other"].append(happening)
-
-    # Handle happenings
-    # should probably be handled in timestamp ascending order (maybe someone left and rejoined, etc)
-    # relocated: if leaving, remove from unendorsed set (if in it)
-    #            if arriving, check if they have been endorsed
-    #               (maybe collaborate with false positive section)
-    # admitted: check if they have been unendorsed (maybe collaborate)
-    # resigned: remove from unendorsed set
-
-    # Filter false positives
-    # use `endo` filter on happenings of endorser
-    # similar to wa changes/region moves, page through all happenings.
-
     return (region, nonendorsed)
+
+
+# # TDO: update nonendorsed using activity:
+# # api.cgi?q=happenings&view=region.10000_islands&filter=member+move
+# # convert current_dump_day to the time the dump was generated as timestamp
+# # and then request happenings since then. page through the happenings using `beforeid`
+# # until empty list is returned, which signifies all happenings
+# # since the timestamp have been retrieved
+# # Consider adding this paging logic to the World class
+# # in the happenings method, check if the limit keyword was given and >100,
+# # if so page until reached
+# # requester.world().happenings(view=f"region.{region}", filter="member+move")
+
+# # Sort happenings by keyword
+# # These keywords do not differentiate between all happening types,
+# # (notably arriving and leaving)
+# # but differentiate between formmating types
+# # Prepare a dict of keywords -> list of happenings
+# keywords: Dict[str, List[nsapi.Happening]] = {
+#     "relocated": [],  # a nation move to or from the region
+#     "admitted": [],  # a nation joined the WA
+#     "resigned": [],  # a nation left the WA
+#     "other": [],  # a 'other' bin, should only contain application happenings
+# }
+# for happening in requester.world().happenings(
+#     view=f"region.{region}", filter="member+move"
+# ):
+#     for keyword in keywords:
+#         if keyword in happening.text:
+#             keywords[keyword].append(happening)
+#             break
+#     else:
+#         keywords["other"].append(happening)
+
+# # Handle happenings
+# # should probably be handled in timestamp ascending order (maybe someone left and rejoined, etc)
+# # relocated: if leaving, remove from unendorsed set (if in it)
+# #            if arriving, check if they have been endorsed
+# #               (maybe collaborate with false positive section)
+# # admitted: check if they have been unendorsed (maybe collaborate)
+# # resigned: remove from unendorsed set
+
+# # Filter false positives
+# # use `endo` filter on happenings of endorser
+# # similar to wa changes/region moves, page through all happenings.
 
 
 def unendorsed_nations_v2(
@@ -151,7 +146,7 @@ def main() -> None:
     # Setup API
     API = nsapi.NSRequester("HN67 API Reader")
     # Set endorser nation to check for
-    nation = "hn67"
+    nation = "kuriko"
 
     logging.info("Collecting data")
     logging.info("Current time is %s UTC", datetime.datetime.utcnow())

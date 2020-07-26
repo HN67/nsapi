@@ -13,6 +13,7 @@ from typing import (
     Container,
     Dict,
     Generator,
+    Generic,
     Iterable,
     Mapping,
     MutableMapping,
@@ -45,6 +46,9 @@ import requests
 logging.basicConfig(level=logging.INFO)
 # Reference logger
 logger = logging.getLogger()
+
+# Basic type var used for generics
+T = TypeVar("T")
 
 # Determine the root path for downloading and producing files
 # Default on the file location, but if not existant for some reason
@@ -653,7 +657,7 @@ class Nation(API):
 
     def standard(self) -> NationStandard:
         """Returns a NationStandard object for this Nation"""
-        return NationStandard(
+        return NationStandard.from_xml(
             as_xml(self.requester.parameter_request(nation=self.name).text)
         )
 
@@ -1150,102 +1154,131 @@ class Issue:
         )
 
 
+@dataclasses.dataclass()
+class Freedoms(Generic[T]):
+    """Dataclass that contains info on freedoms"""
+
+    civilRights: T
+    economy: T
+    politicalFreedom: T
+
+    @classmethod
+    def from_xml(
+        cls, node: etree.Element, converter: Callable[[str], T]
+    ) -> Freedoms[T]:
+        """Constructs a Freedoms object using the given node.
+        Casts the content of each subnode using the converter.
+        """
+        data = NodeParse(node)
+        return cls(
+            civilRights=converter(data.simple("CIVILRIGHTS")),
+            economy=converter(data.simple("ECONOMY")),
+            politicalFreedom=converter(data.simple("POLITICALFREEDOM")),
+        )
+
+
+@dataclasses.dataclass()
+class DeathCause:
+    """Dataclass of the type of death and percentage"""
+
+    cause: str
+    percentage: float
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> DeathCause:
+        """Constructs a DeathCause from a CAUSE node, as contained in the NS deaths shard
+        (https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=deaths).
+        """
+        return cls(cause=node.attrib["type"], percentage=float(content(node)))
+
+
+@dataclasses.dataclass()
 class NationStandard:
-    """Wrapper for a Nation Standard XML data provided by NS"""
+    """Dataclass of the data returned by standard request to nation API,
+    or the data of a nation in the nations data dump.
+    """
 
-    # Maps tag names to index number based on API Version 9
-    tag_list = [
-        "NAME",
-        "TYPE",
-        "FULLNAME",
-        "MOTTO",
-        "CATEGORY",
-        "UNSTATUS",
-        "ENDORSEMENTS",
-        "ISSUES_ANSWERED",
-        "FREEDOM",
-        "REGION",
-        "POPULATION",
-        "TAX",
-        "ANIMAL",
-        "CURRENCY",
-        "DEMONYM",
-        "DEMONYM2",
-        "DEMONYM2PLURAL",
-        "FLAG",
-        "MAJORINDUSTRY",
-        "GOVTPRIORITY",
-        "GOVT",
-        "FOUNDED",
-        "FIRSTLOGIN",
-        "LASTLOGIN",
-        "LASTACTIVITY",
-        "INFLUENCE",
-        "FREEDOMSCORES",
-        "PUBLICSECTOR",
-        "DEATHS",
-        "LEADER",
-        "CAPITAL",
-        "RELIGION",
-        "FACTBOOKS",
-        "DISPATCHES",
-        "DBID",
-        # also, just fix this entire class
-    ]
-    # Transpose the tag_list into into a dictionary
-    tag_map = {tag: index for index, tag in enumerate(tag_list)}
-
-    def __init__(self, node: etree.Element):
-        """Wrapper for NATION XML node povided by NS Standard Nation API"""
-        # Reference node
-        self.node = node
+    name: str
+    classification: str
+    fullName: str
+    motto: str
+    governmentCategory: str
+    WAStatus: str
+    endorsements: Sequence[str]
+    issuesAnswered: int
+    freedom: Freedoms[str]
+    region: str
+    population: int
+    tax: float
+    animal: str
+    currency: str
+    demonym: str
+    demonym2: str
+    demonym2Plural: str
+    flag: str
+    majorIndustry: str
+    governmentPriority: str
+    government: Mapping[str, float]
+    founded: str
+    firstLogin: int
+    lastLogin: int
+    influence: str
+    freedomScores: Freedoms[int]
+    publicSector: float
+    deaths: Sequence[DeathCause]
+    leader: str
+    capital: str
+    religion: str
+    factbooks: int
+    dispatches: int
+    dbid: int
 
     @classmethod
     def from_xml(cls, node: etree.Element) -> NationStandard:
-        """Creates a NationStandard using a XML NATION node,
-        as seen in the data dump.
-        """
-        return cls(node)
-
-    def __getitem__(self, key: str) -> etree.Element:
-        """Attempts to retrieve a Element, sepcified by tag name"""
-        # Check if tag is known
-        if key in self.tag_map:
-            child = self.node[self.tag_map[key]]
-            # Check if this is indeed the correct tag
-            if key == child.tag:
-                # Correct tag, return
-                return child
-            else:
-                # Incorrect tag, search manually
-                # Raise warning
-                logging.warning(
-                    "NationStandard tag_map returned wrong index for key <%s>", key
-                )
-                return self.find_tag(key)
-        else:
-            # Unknown tag, search manually
-            logging.info("NationStandard tag_map does not contain key <%s>", key)
-            return self.find_tag(key)
-
-    def basic(self, key: str) -> str:
-        """Attempts to retrive the text associated with a basic field, such as endorsements.
-        Returns an empty string if the node has no text
-        """
-        value = self[key].text
-        return value if value else ""
-
-    def find_tag(self, key: str) -> etree.Element:
-        """Searches through the Nation node's children for a tag based on given name"""
-        # Iterate through node children
-        for child in self.node:
-            # Compare tag name with given key
-            if child.tag == key:
-                # Return on success
-                return child
-        # No child with key was found since loop didnt return
-        # Raise error
-        raise ValueError(f"Child with tag <{key}> not found in node {self}")
+        """Constructs a NationStandard using a NATION node"""
+        data = NodeParse(node)
+        return cls(
+            name=data.simple("NAME"),
+            classification=data.simple("TYPE"),
+            fullName=data.simple("FULLNAME"),
+            motto=data.simple("MOTTO"),
+            governmentCategory=data.simple("CATEGORY"),
+            WAStatus=data.simple("UNSTATUS"),
+            endorsements=(
+                data.simple("ENDORSEMENTS").split(",")
+                if data.simple("ENDORSEMENTS")
+                else []
+            ),
+            issuesAnswered=int(data.simple("ISSUES_ANSWERED")),
+            freedom=Freedoms.from_xml(data.first("FREEDOM"), str),
+            region=data.simple("REGION"),
+            population=int(data.simple("POPULATION")),
+            tax=float(data.simple("TAX")),
+            animal=data.simple("ANIMAL"),
+            currency=data.simple("CURRENCY"),
+            demonym=data.simple("DEMONYM"),
+            demonym2=data.simple("DEMONYM2"),
+            demonym2Plural=data.simple("DEMONYM2PLURAL"),
+            flag=data.simple("FLAG"),
+            majorIndustry=data.simple("MAJORINDUSTRY"),
+            governmentPriority=data.simple("GOVTPRIORITY"),
+            government={
+                child.tag: float(content(child)) for child in data.first("GOVT")
+            },
+            founded=data.simple("FOUNDED"),
+            firstLogin=int(data.simple("FIRSTLOGIN")),
+            lastLogin=int(data.simple("LASTLOGIN")),
+            influence=data.simple("INFLUENCE"),
+            freedomScores=Freedoms.from_xml(data.first("FREEDOMSCORES"), int),
+            publicSector=float(data.simple("PUBLICSECTOR")),
+            deaths=sequence(data.first("DEATHS"), DeathCause.from_xml),
+            leader=data.simple("LEADER"),
+            capital=data.simple("CAPITAL"),
+            religion=data.simple("RELIGION"),
+            factbooks=int(data.simple("FACTBOOKS")),
+            dispatches=int(data.simple("DISPATCHES")),
+            dbid=int(data.simple("DBID")),
+        )
 
 
 @dataclasses.dataclass()
@@ -1343,8 +1376,6 @@ class RegionStandard:
 
 # # XMLTransformer/Parser logic
 # """Tools for describing the transformation from XML to Python"""
-
-T = TypeVar("T")
 
 
 class NodeParse:
