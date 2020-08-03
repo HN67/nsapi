@@ -11,6 +11,7 @@ def check_region(
 ) -> Sequence[str]:
     """Checks all nations in the specified region for trading card activity.
     Makes at most 1 + region population requests (1 for each nation).
+    A nation does not qualify if it is in the `previous` container.
     """
     # If a previous list is not provided, use an empty set
     if not previous:
@@ -42,13 +43,46 @@ def main() -> None:
 
     requester = nsapi.NSRequester(config.userAgent)
 
-    region = "10000_islands"
+    print("Specify the region you want to search for card farmers.")
+    region = input("Region: ")
 
-    participants = check_region(requester, region)
+    print(
+        "\nOptionally, provide a previous output file that is used to indicate nations to not count."
+    )
+    print(
+        "(i.e. the script will only output nations not in the previous output, i.e. new farmers)."
+    )
+    print("Or, press enter to not use a previous file.")
+    previousPath = input("Previous Output File: ")
 
-    with open(nsapi.absolute_path("participants.txt"), "w") as file:
+    print("\nEnter the name of the output file (defaults to `participants.txt`)")
+    outputPath = nsapi.absolute_path(input("Output Path: "))
+
+    # Load previous file if provided
+    if previousPath:
+        with open(nsapi.absolute_path(previousPath), "r") as f:
+            # Each nation name is surrounded by [nation]...[/nation] tags
+            # we remove the leading ones, and then split on the trailing ones
+            # this leaves an extra empty element due to the trailing end tag at the end,
+            # so that is removed with the slice. This process is done for each line,
+            # creating a 2D iterator, which is then flattened using `a for b in c for a in b`
+            # (the double for acts like a nested for loop)
+            previous = {
+                nation
+                for nationLine in (
+                    line.replace("[nation]", "").split("[/nation]")[:-1]
+                    for line in f.readlines()
+                )
+                for nation in nationLine
+            }
+
+    participants = check_region(requester, region, previous)
+
+    with open(outputPath, "w") as file:
         for participant in participants:
-            print(f"[nation]{participant}[/nation]", file=file)
+            print(f"[nation]{participant}[/nation]", file=file, end="")
+
+    print(f"\nCollection complete. ({len(participants)} nations selected.)")
 
 
 if __name__ == "__main__":
