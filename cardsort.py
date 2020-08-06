@@ -4,7 +4,9 @@
 from typing import Iterable, Mapping, MutableMapping
 
 # Import core modules
+import itertools
 import logging
+from pathlib import Path
 import time
 
 # Core library and modules
@@ -13,7 +15,9 @@ import config
 
 # Set logging level
 level = logging.INFO
-logging.basicConfig(level=level)
+logging.basicConfig(
+    level=level, format="%(asctime)s %(name)s %(levelname)s %(message)s"
+)
 # Name logger
 logger = logging.getLogger()
 # Change nsapi logging level
@@ -66,6 +70,34 @@ def sorted_cards(
     return out
 
 
+def extracted_cards(
+    data: Mapping[str, Mapping[str, Mapping[nsapi.CardIdentifier, int]]]
+) -> Iterable[nsapi.CardIdentifier]:
+    """Returns a sequence of all Cards contained in the complex data returned by card sort."""
+    return (
+        card
+        for nations in data.values()
+        for cards in nations.values()
+        for card in cards.keys()
+    )
+
+
+def named_cards(
+    requester: nsapi.NSRequester, cards: Iterable[nsapi.CardIdentifier],
+) -> Mapping[int, str]:
+    """Maps each CardIdentifier to the nation name,
+    using the card dumps. Returns a mapping from id to name
+    """
+    cardMap = {card.id: "" for card in cards}
+    for standard in itertools.chain(
+        requester.dumpManager().cards(season="1"),
+        requester.dumpManager().cards(season="2"),
+    ):
+        if standard.id in cardMap:
+            cardMap[standard.id] = standard.name
+    return cardMap
+
+
 def main() -> None:
     """Main function"""
 
@@ -83,9 +115,21 @@ def main() -> None:
     fileName = input("File name: ")
     if fileName != "":
         # Read each line, and split on ,
-        with open(nsapi.absolute_path(fileName), "r") as file:
+        with open(fileName, "r") as file:
             for line in file:
                 nations.extend(line.strip().split(","))
+
+    print("\nEnter the names of any regions to search.")
+    print("Every nation in any of the regions provided will be searched.")
+    print(
+        "Seperate multiple regions with a comma, no space (e.g. 'REGION1,REGION 2,REGION 3')."
+    )
+    print("Enter nothing to not search any regions.")
+    regionsInput = input("Regions: ")
+    if regionsInput != "":
+        regions = regionsInput.split(",")
+        for region in regions:
+            nations.extend(requester.region(region).shard("nations").split(":"))
 
     print("\nEnter the names of additional nations you want to search.")
     print("Seperate names with a comma, no space (e.g. 'NATION,NATION II,NATION III').")
@@ -123,11 +167,12 @@ def main() -> None:
 
     # Actually run the bulk logic
     data = sorted_cards(requester, nations)
+    names = named_cards(requester, extracted_cards(data))
     # Output the data as a csv file format
-    path = nsapi.absolute_path("cardsort.csv")
+    path = Path("cardsort.csv").resolve()
     with open(path, "w") as f:
         # Write the csv headers
-        headers = "card, nation, rarity"
+        headers = "card, cardName, nation, rarity"
         # Only add copies header if collecting
         if collect:
             headers += ", copies"
@@ -139,25 +184,20 @@ def main() -> None:
                 for nation, nationData in rarityData.items():
                     for card, count in nationData.items():
                         # Unroll duplicates if collect option is false
+                        row = (
+                            "https://www.nationstates.net/page=deck/"
+                            f"card={card.id}/season={card.season}"
+                            f", {names[card.id]}, {nation}, {rarity}"
+                        )
                         if not collect:
                             for _ in range(count):
                                 print(
-                                    (
-                                        "https://www.nationstates.net/page=deck/"
-                                        f"card={card.id}/season={card.season}"
-                                        f", {nation}, {rarity}"
-                                    ),
-                                    file=f,
+                                    row, file=f,
                                 )
                         # Write each data in a different column
                         else:
                             print(
-                                (
-                                    "https://www.nationstates.net/page=deck/"
-                                    f"card={card.id}/season={card.season}"
-                                    f", {nation}, {rarity}, {count}"
-                                ),
-                                file=f,
+                                row + f", {count}", file=f,
                             )
     print(f"Outputted to {path}")
     # prevents the window from immediately closing if opened standalone

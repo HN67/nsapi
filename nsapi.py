@@ -1445,8 +1445,6 @@ def main() -> None:
     requester: NSRequester = NSRequester("HN67 API Reader")
     print(requester.request("a=useragent").text)
 
-    print(requester.nation("aech_en").deck_info())
-
 
 # script-only __main__ paradigm, for testing
 if __name__ == "__main__":
