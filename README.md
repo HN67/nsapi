@@ -10,8 +10,10 @@ Some scripts interact with NationStates data dumps, which may involve downloadin
 
 ## Requirements
 
-- Python 3.6+
-- requests
+- Python 3.6+ (`https://www.python.org/downloads/`)
+- requests (`pip install requests`)
+
+When installing Python, make sure to install pip as well, and to add Python to PATH/Environment Variables.
 
 ## Utilities
 The following list is incomplete. Information on scripts can also be found in the docstring (first line) of the file.
