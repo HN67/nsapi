@@ -9,6 +9,7 @@ import time
 
 # Core library
 import nsapi
+import config
 
 # Set logging level
 level = logging.INFO
@@ -66,11 +67,11 @@ def main() -> None:
     """Main function"""
 
     # Provide proper user agent to api requester
-    requester = nsapi.NSRequester("HN67 API Reader")
+    requester = nsapi.NSRequester(config.userAgent)
 
     # Function arguments, could be connected to command line, etc
-    nation = "hn67_ii"
-    lead = "walk_this_way"
+    nation = "ne hcea"
+    lead = "panther"
 
     # Actually run the bulk logic
     print(uncrossed(requester, nation, lead, duration=3600 * 3))

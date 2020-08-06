@@ -5,6 +5,7 @@ import logging
 
 # Import nsapi
 import nsapi
+import config
 
 # Set logging level
 level = logging.INFO
@@ -15,7 +16,7 @@ logger = logging.getLogger()
 nsapi.logger.setLevel(level=level)
 
 # Setup API
-requester = nsapi.NSRequester("HN67 API Reader")
+requester = nsapi.NSRequester(config.userAgent)
 
 # Set target nation to check against
 target = "kuriko"

@@ -11,6 +11,7 @@ import datetime
 
 # Import nsapi
 import nsapi
+import config
 
 
 # Set logging level
@@ -144,7 +145,7 @@ def main() -> None:
     """Main function for running this module"""
 
     # Setup API
-    API = nsapi.NSRequester("HN67 API Reader")
+    API = nsapi.NSRequester(config.userAgent)
     # Set endorser nation to check for
     nation = "kuriko"
 
