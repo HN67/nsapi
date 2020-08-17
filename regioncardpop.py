@@ -47,7 +47,7 @@ def main() -> None:
     region = input("Region: ")
 
     print(
-        "\nOptionally, provide a previous output file that is used to indicate nations to not count."
+        "\nOptionally, provide a previous output file that indicates nations to not count."
     )
     print(
         "(i.e. the script will only output nations not in the previous output, i.e. new farmers)."
@@ -81,6 +81,8 @@ def main() -> None:
     with open(outputPath, "w") as file:
         for participant in participants:
             print(f"[nation]{participant}[/nation]", file=file, end="")
+        # Print a trailing newline
+        print("", file=file)
 
     print(f"\nCollection complete. ({len(participants)} nations selected.)")
 
