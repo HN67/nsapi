@@ -64,7 +64,7 @@ def absolute_path(path: str) -> str:
     return os.path.join(os.path.dirname(basePath), path)
 
 
-def download_file(url: str, fileName: str, *, headers: Dict[str, str]) -> None:
+def download_file(url: str, fileName: str, *, headers: Mapping[str, str]) -> None:
     """Downloads a file from <url> to the location specified by <fileName>"""
     # Open request to url
     logging.info("Starting download of <%s> to <%s>", url, fileName)
@@ -179,6 +179,138 @@ def as_xml(data: str) -> etree.Element:
 def clean_format(string: str) -> str:
     """Casts the string to lowercase and replaces spaces with underscores"""
     return string.lower().replace(" ", "_")
+
+
+@dataclasses.dataclass()
+class Resource:
+    """Class that describes a retrievable resource."""
+
+    source: str
+    name: str
+
+    def outdated(
+        self,
+        previous: datetime.datetime,  # pylint: disable=unused-argument
+        current: Optional[datetime.datetime] = None,  # pylint: disable=unused-argument
+    ) -> bool:
+        """Determines whether the Resource is outdated.
+
+        Always returns False on base class.
+
+        Based on comparing the current time to the previous time
+        (i.e. when the resource was previously retrieved).
+        Current defaults to now.
+        """
+        return False
+
+
+@dataclasses.dataclass()
+class DailyResource(Resource):
+    """Describes a resource that updates daily at a certain time."""
+
+    updateTime: datetime.time = datetime.time()
+
+    def outdated(
+        self, previous: datetime.datetime, current: Optional[datetime.datetime] = None
+    ) -> bool:
+        """Determines whether the Resource is outdated.
+
+        The Resource is considered outdated if current falls on or after
+        the first updateTime that occurs after previous.
+
+        current defaults to (naive) utc now.
+        """
+
+        if current is None:
+            current = datetime.datetime.utcnow()
+
+        # Get the next datetime after previous that has the desired time
+        nextUpdate = datetime.datetime.combine(previous.date(), self.updateTime)
+        if nextUpdate < previous:
+            nextUpdate += datetime.timedelta(days=1)
+
+        return current >= nextUpdate
+
+
+class ResourceManager:
+    """Class to manage the downloading and updating of Resources."""
+
+    def __init__(
+        self, markerFile: str, headers: Optional[Mapping[str, str]] = None
+    ) -> None:
+        """Headers can optionally be provided that will be used in download requests."""
+
+        self.markerFile = markerFile
+
+        if headers is not None:
+            self.headers = headers
+        else:
+            self.headers = {}
+
+    def resolve(self, resource: Resource, target: str = None) -> str:
+        """Returns target if provided, else a constructed path from Resource name.
+
+        If target is truthy (i.e. not None or empty), it is returned unchanged.
+        Otherwise, returns a path constructed by calling absolute_path(resource.name).
+        """
+        return target or absolute_path(resource.name)
+
+    def download(self, resource: Resource, target: str = None) -> None:
+        """Downloads the given resource by assuming the source is a HTTP URL.
+
+        Saves to the resolved path (self.resolve) of the resource and target.
+        """
+        download_file(
+            resource.source, self.resolve(resource, target), headers=self.headers
+        )
+
+    def verify(self, resource: Resource, target: str = None) -> None:
+        """Verifies the resource exists, downloading if needed.
+
+        Checks the resolved path for a file, if it doesnt exist, downloads
+        from the source of the resource.
+        """
+        if not os.path.isfile(self.resolve(resource, target)):
+            logging.info("File does not exist, downloading.")
+            self.download(resource, target)
+
+    def update(self, resource: Resource, target: str = None) -> None:
+        """Downloads the resource only if certain conditions are met,
+        i.e. the file doesn't already exist or it is outdated.
+
+        When working with multiple resources, they should each have unique names,
+        otherwise there could be collisions with tracking age.
+        """
+
+        # Notify of downloading
+        logging.info("Checking resource timestamp marker.")
+        try:
+            # Try loading marker
+            with open(self.markerFile, "r") as f:
+                marker = json.load(f)
+        except FileNotFoundError:
+            # Download if marker does not exist
+            logging.info("Marker file does not exist, downloading file.")
+            self.download(resource, target)
+            # Create marker
+            marker = {resource.name: datetime.datetime.utcnow().isoformat()}
+        else:
+            # Check timestamp, redownload data if outdated
+            if resource.name not in marker or resource.outdated(
+                datetime.datetime.fromisoformat(marker[resource.name])
+            ):
+                logging.info("Marker shows outdated timestamp, redownloading file.")
+                # Write to the file
+                self.download(resource, target)
+                # Update timestamp
+                marker[resource.name] = datetime.datetime.utcnow().isoformat()
+            else:
+                # Verify that dump exists
+                self.verify(resource, target)
+
+        # Save the marker
+        with open(self.markerFile, "w") as f:
+            json.dump(marker, f)
 
 
 class DumpManager:
