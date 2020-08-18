@@ -314,92 +314,65 @@ class ResourceManager:
 
 
 class DumpManager:
-    """Class to manage downloading and updating data dumps from NS API"""
+    """Specific class to manage downloading and updating data dumps from NS API"""
 
-    def __init__(self, userAgent: str):
+    generationTime = datetime.time(hour=6)
 
-        # Aliases for intended dumps
-        self.dumpNodes = {
-            "regions": "REGION",
-            "nations": "NATION",
-            "cardlist_S1": "CARD",
-            "cardlist_S2": "CARD",
-        }
+    resources = {
+        "regions": DailyResource(
+            "https://www.nationstates.net/pages/regions.xml.gz",
+            "regions.xml.gz",
+            generationTime,
+        ),
+        "nations": DailyResource(
+            "https://www.nationstates.net/pages/nations.xml.gz",
+            "nations.xml.gz",
+            generationTime,
+        ),
+        "cardlist_S1": Resource(
+            "https://github.com/HN67/nsapi/raw/master/cardlist_S1.xml.gz",
+            "cardlist_S1.xml.gz",
+        ),
+        "cardlist_S2": Resource(
+            "https://github.com/HN67/nsapi/raw/master/cardlist_S2.xml.gz",
+            "cardlist_S2.xml.gz",
+        ),
+    }
 
-        # Save user agent and construct headers object for later use
-        self.headers = {"User-Agent": userAgent}
+    # Names of the main nodes in the XML dumps
+    dumpNodes = {
+        "regions.xml.gz": "REGION",
+        "nations.xml.gz": "NATION",
+        "cardlist_S1.xml.gz": "CARD",
+        "cardlist_S2.xml.gz": "CARD",
+    }
 
-    def resolve(self, name: str, location: str = None) -> str:
-        """Returns a path based on name and location.
-        If location is None (or not provided), returns `absolute_path({name}.xml.gz)`,
-        otherwise returns location.
+    @staticmethod
+    def archived_dump(date: datetime.date, dump: str) -> Resource:
+        """Constructs a resource for the archived dump.
+
+        dump should be either 'regions' or 'nations'.
         """
-        return location if location else absolute_path(f"{name}.xml.gz")
+        name = f"{date.isoformat()}-{dump}-xml.gz"
+        source = f"https://www.nationstates.net/archive/{dump}/{name}"
 
-    def download(self, name: str, location: str = None) -> None:
-        """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`.
-        Saves to the given location path, defaults to `absolute_path({name}.xml.gz)`.
-        """
-        download_file(
-            f"https://www.nationstates.net/pages/{name}.xml.gz",
-            self.resolve(name, location),
-            headers=self.headers,
+        # Archive dumps are static
+        return Resource(source, name)
+
+    def __init__(self, userAgent: str, markerFile: str = "marker.json"):
+
+        self.resourceManager = ResourceManager(
+            markerFile, headers={"User-Agent": userAgent}
         )
 
-    def verify(self, name: str, location: str = None) -> None:
-        """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`
-        if it does not exist at the specified location
-        ( which defaults to {name}.xml.gz in the same directory).
-        """
-        # Simple check and then download
-        if not os.path.isfile(self.resolve(name, location)):
-            logging.info("File does not exist, downloading.")
-            self.download(name, location)
-
-    def update(self, name: str, location: str = None) -> None:
-        """Downloads the file retrieved from `https://www.nationstates.net/pages/{name}.xml.gz`
-        only if certain conditions are met, i.e. the file doesn't already exist
-        or it is outdated. (New dumps are available by 2300 PST).
-        """
-        # Notify of downloading
-        logging.info("Checking dump timestamp marker.")
-        try:
-            # Try loading marker
-            with open(absolute_path("marker.json"), "r") as f:
-                marker = json.load(f)
-        except FileNotFoundError:
-            # Download if marker does not exist
-            logging.info("Marker file does not exist, downloading file.")
-            self.download(name, location)
-            # Create marker
-            marker = {name: current_dump_day().isoformat()}
-        else:
-            # Check timestamp, redownload data if outdated
-            if (
-                name not in marker
-                or datetime.date.fromisoformat(marker[name]) < current_dump_day()
-            ):
-                logging.info("Marker shows outdated timestamp, redownloading file.")
-                # Write to the file
-                self.download(name, location)
-                # Update timestamp
-                marker[name] = current_dump_day().isoformat()
-            else:
-                # Verify that dump exists
-                self.verify(name, location)
-
-        # Save the marker
-        with open(absolute_path("marker.json"), "w") as f:
-            json.dump(marker, f)
-
-    def retrieve(self, name: str, location: str = None) -> etree.Element:
+    def retrieve(self, resource: Resource, location: str = None) -> etree.Element:
         """Returns the XML root node of the given dump,
-        looking in the specified location (defaults to `absolute_path({name}.xml.gz)`).
+        looking in the specified location (calculated with ResourceManager.resolve).
         """
 
         logging.info("Parsing XML tree")
         # Attempt to load the data
-        with gzip.open(self.resolve(name, location)) as dump:
+        with gzip.open(self.resourceManager.resolve(resource, location)) as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
@@ -407,7 +380,7 @@ class DumpManager:
         return xml
 
     def retrieve_iterator(
-        self, name: str, location: str = None, tags: Container[str] = None,
+        self, resource: Resource, location: str = None, tags: Container[str] = None,
     ) -> Generator[etree.Element, None, None]:
         """Iteratively traverses the dump,
         without storing the entirety in memory simultaneously.
@@ -421,13 +394,13 @@ class DumpManager:
         if not tags:
             # Find default with dumpNodes, if in existance
             try:
-                tags = {self.dumpNodes[name]}
+                tags = {self.dumpNodes[resource.name]}
             except KeyError:
                 pass
 
         logging.info("Iteratively parsing XML")
         # Attempt to load the data
-        with gzip.open(self.resolve(name, location)) as dump:
+        with gzip.open(self.resourceManager.resolve(resource, location)) as dump:
 
             # Looking for start events allows us to retrieve
             # the starting, parent, element using the `next()` call.
@@ -453,14 +426,15 @@ class DumpManager:
         If `update` is true (the default), the dump will be redownloaded if it is outdated,
         otherwise it will only be downloaded if it doesnt exist.
         """
+        resource = self.resources["nations"]
         if update:
-            self.update("nations", location)
+            self.resourceManager.update(resource, location)
         else:
-            self.verify("nations", location)
+            self.resourceManager.verify(resource, location)
 
         return (
             NationStandard.from_xml(node)
-            for node in self.retrieve_iterator("nations", location)
+            for node in self.retrieve_iterator(resource, location)
         )
 
     def regions(
@@ -471,14 +445,15 @@ class DumpManager:
         If `update` is true (the default), the dump will be redownloaded if it is outdated,
         otherwise it will only be downloaded if it doesnt exist.
         """
+        resource = self.resources["regions"]
         if update:
-            self.update("regions", location)
+            self.resourceManager.update(resource, location)
         else:
-            self.verify("regions", location)
+            self.resourceManager.verify(resource, location)
 
         return (
             RegionStandard.from_xml(node)
-            for node in self.retrieve_iterator("regions", location)
+            for node in self.retrieve_iterator(resource, location)
         )
 
     def cards(
@@ -490,12 +465,12 @@ class DumpManager:
         Note that the automatic download from the NS API will likely not work, since it contains
         malformed XML and characters.
         """
-        name = f"cardlist_S{season}"
-        self.verify(name, location)
+        resource = self.resources[f"cardlist_S{season}"]
+        self.resourceManager.verify(resource, location)
 
         return (
             CardStandard.from_xml(node)
-            for node in self.retrieve_iterator(name, location)
+            for node in self.retrieve_iterator(resource, location)
         )
 
 

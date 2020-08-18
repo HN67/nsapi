@@ -22,10 +22,7 @@ def factbook_searcher(
     return [
         region
         # Maps from XML to RegionStandard, should be single pass since its a generator wrapping
-        for region in (
-            nsapi.RegionStandard.from_xml(regionXML)
-            for regionXML in requester.dumpManager().retrieve_iterator("regions")
-        )
+        for region in requester.dumpManager().regions()
         # Probably not the most efficient (probably O(n^2))
         if any(keyword in region.factbook for keyword in keywords)
         and region.numnations > populationMinimum
