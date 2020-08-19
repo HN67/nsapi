@@ -339,14 +339,6 @@ class DumpManager:
         ),
     }
 
-    # Names of the main nodes in the XML dumps
-    dumpNodes = {
-        "regions.xml.gz": "REGION",
-        "nations.xml.gz": "NATION",
-        "cardlist_S1.xml.gz": "CARD",
-        "cardlist_S2.xml.gz": "CARD",
-    }
-
     @staticmethod
     def archived_dump(date: datetime.date, dump: str) -> Resource:
         """Constructs a resource for the archived dump.
@@ -380,23 +372,16 @@ class DumpManager:
         return xml
 
     def retrieve_iterator(
-        self, resource: Resource, location: str = None, tags: Container[str] = None,
+        self,
+        resource: Resource,
+        location: str = None,
+        tags: Optional[Container[str]] = None,
     ) -> Generator[etree.Element, None, None]:
         """Iteratively traverses the dump,
         without storing the entirety in memory simultaneously.
         Will only yield nodes who's tag is in the given container.
-        If `tags` is none, attempts to pull a tag from .dumpNodes;
-        if that also fails, every node is returned (including a empty root node).
-        For normal dumps, the default is usually the desired behavior.
+        If `tags` is None, every node is returned (including a empty root node).
         """
-
-        # Setup tags, to have defaults, etc
-        if not tags:
-            # Find default with dumpNodes, if in existance
-            try:
-                tags = {self.dumpNodes[resource.name]}
-            except KeyError:
-                pass
 
         logging.info("Iteratively parsing XML")
         # Attempt to load the data
@@ -418,15 +403,22 @@ class DumpManager:
                     yield element
                     root.clear()
 
+    # TODO consider making a private common method for the nations and regions dump
+
     def nations(
-        self, location: str = None, update: bool = True
+        self, date: datetime.date = None, location: str = None, update: bool = True
     ) -> Generator[NationStandard, None, None]:
         """Iteratively parses each nation in the most recent dump.
         Checks for the dump in the given location, which defaults to `nations.xml.gz`.
         If `update` is true (the default), the dump will be redownloaded if it is outdated,
         otherwise it will only be downloaded if it doesnt exist.
+        Note that archive dumps will never be outdated.
         """
-        resource = self.resources["nations"]
+        if date is None:
+            resource = self.resources["nations"]
+        else:
+            resource = self.archived_dump(date, "nations")
+
         if update:
             self.resourceManager.update(resource, location)
         else:
@@ -434,18 +426,23 @@ class DumpManager:
 
         return (
             NationStandard.from_xml(node)
-            for node in self.retrieve_iterator(resource, location)
+            for node in self.retrieve_iterator(resource, location, tags={"NATION"})
         )
 
     def regions(
-        self, location: str = None, update: bool = True
+        self, date: datetime.date = None, location: str = None, update: bool = True
     ) -> Generator[RegionStandard, None, None]:
         """Iteratively parses each region in the most recent dump.
         Checks for the dump in the given location, which defaults to `regions.xml.gz`.
         If `update` is true (the default), the dump will be redownloaded if it is outdated,
         otherwise it will only be downloaded if it doesnt exist.
+        Note that archive dumps will never be outdated.
         """
-        resource = self.resources["regions"]
+        if date is None:
+            resource = self.resources["regions"]
+        else:
+            resource = self.archived_dump(date, "regions")
+
         if update:
             self.resourceManager.update(resource, location)
         else:
@@ -453,7 +450,7 @@ class DumpManager:
 
         return (
             RegionStandard.from_xml(node)
-            for node in self.retrieve_iterator(resource, location)
+            for node in self.retrieve_iterator(resource, location, tags={"REGION"})
         )
 
     def cards(
@@ -470,7 +467,7 @@ class DumpManager:
 
         return (
             CardStandard.from_xml(node)
-            for node in self.retrieve_iterator(resource, location)
+            for node in self.retrieve_iterator(resource, location, tags={"CARD"})
         )
 
 

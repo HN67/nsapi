@@ -1,11 +1,10 @@
-# NS datadump compressed xml files
-*.xml.gz
-
 # By default, ignore any data files
 *.csv
 *.json
 *.txt
+*.xml.gz
 *.xml
+*.gz
 
 # Include certain data files
 !legendaryCards.json
