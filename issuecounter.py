@@ -80,43 +80,13 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
     # Wage constant (Tacos per issue)
     wage = 10
 
-    # Start multiline string with \ to escape the newline, i.e. the first character is '[', not \n
-    # Technically the first characters are tabs, but those are removed next using textwrap.deindent
-    report = """\
-        [div align="center"][img style="max-width:20%;" src="http://10000islands.net/gallery/gallery-images/XKICardsCoop1.png"][/div]
+    def tag(nation: str) -> str:
+        """Returns a tag that should ping a nation on the forums.
 
-        The following payments were earned in ***MONTH YEAR*** for XKI Cards Co-operative card farmers, paid at a [url=https://10000islands.proboards.com/post/1787776/thread][u]rate[/u][/url] of 10 [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"] per issue answered under [url=https://10000islands.proboards.com/thread/39475/312-xki-cards-operative-passed][u]NS 312-2[/u][/url].
-
-        [div align="center"]
-        [table style="text-align:center;"][tbody]
-            [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Nation[/i][/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Issues Answered[/i][/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Wage[/i][/td]
-            [/tr]
-            [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]@***NATION NAME*** [/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]***ISSUES ANSWERED*** Issues Answereed[/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]***WAGE*** [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"][/td]
-            [/tr]
-        [/tbody][/table]
-
-        [table][tbody]
-            [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Total Number of Active Cards Co-op Members[/i][/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Total ***MONTH** Card Farming Pay[/i][/td]
-            [/tr]
-            [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]**COUNT** card farmers[/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]***TOTAL PAY*** [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"][/td]
-            [/tr]
-        [/tbody][/table]
-
-        The following Cards Co-op members were moved to inactive status:
-        ***LIST OF ANYONE WHO ANSWERED NO ISSUES, with "@" before name so it will tag them***
-        [/div]
-    """
-    report = textwrap.dedent(report)
+        Converts to lowercase and removes any non-alphanumeric characters,
+        and adds a '@' prefix.
+        """
+        return "@" + "".join(char for char in nation.lower() if char.isalnum())
 
     month_name = calendar.month_name[month.month]
     header = textwrap.dedent(
@@ -137,8 +107,8 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
                 textwrap.dedent(
                     f"""\
                     [tr]
-                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]@{nation} [/td]
-                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{issues} Issues Answereed[/td]
+                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{tag(nation)} [/td]
+                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{issues} Issues Answered[/td]
                         [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{issues*wage} [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"][/td]
                     [/tr]
                     """
@@ -147,8 +117,9 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
         else:
             inactive.append(nation)
 
-    body = textwrap.dedent(
-        """\
+    body = (
+        textwrap.dedent(
+            """\
             [div align="center"]
             [table style="text-align:center;"][tbody]
             [tr]
@@ -156,9 +127,11 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
                 [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Issues Answered[/i][/td]
                 [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Wage[/i][/td]
             [/tr]
-        """
-        + "\n".join(rows)
-        + "\n[/tbody][/table]\n"
+            """
+        )
+        # Note that each row already has a trailing newline due to the literal above
+        + "".join(rows)
+        + "[/tbody][/table]\n"
     )
 
     footer = textwrap.dedent(
@@ -175,7 +148,7 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
             [/tbody][/table]
 
             The following Cards Co-op members were moved to inactive status:
-            {"".join("@" + nation for nation in inactive)}
+            {"".join(tag(nation) for nation in inactive)}
             [/div]
         """
     )
@@ -332,6 +305,10 @@ def main() -> None:
     else:
         write_output(sys.stdout)
 
+    # TODO report formatting 2 issues:
+    # line indendation is weird (maybe not a real issue)
+    # account tags probably need to be formatted better (e.g. lower, no space)
+
     # Generate report if chosen.
     # Check the subcommand first, because if month
     # wasnt chosen, the .report attribute wont exist
@@ -345,7 +322,8 @@ def main() -> None:
         # Write the report
         with open(
             nsapi.absolute_path(
-                f"IssuePayoutReports/issuePayoutReport_{start.year}-{start.month}.txt"
+                # Format the month to always be 2-digit
+                f"IssuePayoutReports/issuePayoutReport_{start.year}-{start.month:0>2d}.txt"
             ),
             "w",
         ) as f:
