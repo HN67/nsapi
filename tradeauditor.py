@@ -26,7 +26,7 @@ cards = rarityfinder.load_rarity_data("legendary")
 # load member nations
 response = requests.get(
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
-    "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=916202163&single=true&output=tsv"
+    "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1588413756&single=true&output=tsv"
 )
 members = {
     nsapi.clean_format(line.split("\t")[0]) for line in response.text.split("\r\n")
