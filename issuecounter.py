@@ -74,26 +74,71 @@ def count_change(
     return delta, invalid
 
 
+def _get_forum_names() -> t.Mapping[str, t.Optional[str]]:
+    """Returns a mapping of main nation names to forum usernames.
+
+    If the main nation does not have a forum account, the value will be None.
+
+    This method only provides nations part of the XKI Card Coop program.
+    """
+    source = (
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
+        "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1835258219&single=true&output=tsv"
+    )
+
+    logging.info("Retrieving nation-forum mappings")
+
+    text = requests.get(source).text
+    # 2D table: each first-level element is a row,
+    # each row contains 1st element main nation and
+    # optionally 2nd forum username.
+    # If there is no username, the row is len==1
+    table = [line.split("\t") for line in text.split("\r\n")]
+
+    usernames = {row[0]: row[1] if len(row) > 1 else None for row in table}
+
+    logging.info("Retrieved nation-forum mappings")
+
+    return usernames
+
+
 def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
     """Generates a formatted report string for XKI Card Coop."""
 
     # Wage constant (Tacos per issue)
     wage = 10
 
-    def tag(nation: str) -> str:
+    forum_names = _get_forum_names()
+
+    def tag(nation: str) -> t.Optional[str]:
         """Returns a tag that should ping a nation on the forums.
 
-        Converts to lowercase and removes any non-alphanumeric characters,
-        and adds a '@' prefix.
+        Returns None if the nation does not have a forum account.
         """
-        return "@" + "".join(char for char in nation.lower() if char.isalnum())
+        # return "@" + "".join(char for char in nation.lower() if char.isalnum())
+        return forum_names[nation] if nation in forum_names else None
+
+    taco = (
+        '[img class="smile" style="max-width:100%;" alt=":-X"'
+        ' src="http://10000islands.net/gallery/gallery-images/taco.gif"]'
+    )
+    tdh = '[td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]'
 
     month_name = calendar.month_name[month.month]
+    # TODO fix this header
     header = textwrap.dedent(
         f"""\
-        [div align="center"][img style="max-width:20%;" src="http://10000islands.net/gallery/gallery-images/XKICardsCoop1.png"][/div]
+        [div align="center"][img
+            style="max-width:20%;"
+             src="http://10000islands.net/gallery/gallery-images/XKICardsCoop1.png"
+        ][/div]
 
-        The following payments were earned in {month_name} {month.year} for XKI Cards Co-operative card farmers, paid at a [url=https://10000islands.proboards.com/post/1787776/thread][u]rate[/u][/url] of 10 [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"] per issue answered under [url=https://10000islands.proboards.com/thread/39475/312-xki-cards-operative-passed][u]NS 312-2[/u][/url].
+        The following payments were earned in {month_name} {month.year} for XKI Cards Co-operative \
+        card farmers, paid at a [
+            url=https://10000islands.proboards.com/post/1787776/thread
+        ][u]rate[/u][/url] of 10 {taco} per issue answered under [
+            url=https://10000islands.proboards.com/thread/39475/312-xki-cards-operative-passed
+        ][u]NS 312-2[/u][/url].
 
         """
     )
@@ -102,30 +147,41 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
     inactive = []
     # Create table rows for each active nation
     for nation, issues in count.items():
+
+        # Retrieve the nation forum tag
+        nationTag = tag(nation)
+        # If the tag is None, fallback on nationname and set payout to NA
+        if nationTag is None:
+            nationTag = nation
+            payout = "N/A"
+        else:
+            payout = str(issues * wage)
+
+        # Only add the nation to the table if they answered issues
         if issues > 0:
             rows.append(
                 textwrap.dedent(
                     f"""\
                     [tr]
-                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{tag(nation)} [/td]
-                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{issues} Issues Answered[/td]
-                        [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{issues*wage} [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"][/td]
+                        {tdh}{nationTag} [/td]
+                        {tdh}{issues}[/td]
+                        {tdh}{payout} {taco}[/td]
                     [/tr]
                     """
                 )
             )
         else:
-            inactive.append(nation)
+            inactive.append(nationTag)
 
     body = (
         textwrap.dedent(
-            """\
+            f"""\
             [div align="center"]
             [table style="text-align:center;"][tbody]
             [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Nation[/i][/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Issues Answered[/i][/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Wage[/i][/td]
+                {tdh}[i]Nation[/i][/td]
+                {tdh}[i]Issues Answered[/i][/td]
+                {tdh}[i]Wage[/i][/td]
             [/tr]
             """
         )
@@ -135,25 +191,32 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
     )
 
     footer = textwrap.dedent(
+        # Note that inactive is made up of strings already passed through the tag method,
+        # falling back on original name if no forum name
         f"""\
             [table][tbody]
             [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Total Number of Active Cards Co-op Members[/i][/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"][i]Total {month_name} Card Farming Pay[/i][/td]
+                {tdh}[i]Total Number of Active Cards Co-op Members[/i][/td]
+                {tdh}[i]Total {month_name} Card Farming Pay[/i][/td]
             [/tr]
             [tr]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{len(rows)} card farmers[/td]
-                [td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]{sum(count.values())*10} [img class="smile" style="max-width:100%;" alt=":-X" src="http://10000islands.net/gallery/gallery-images/taco.gif"][/td]
+                {tdh}{len(rows)} card farmers[/td]
+                {tdh}{sum(count.values())*10} {taco}[/td]
             [/tr]
             [/tbody][/table]
 
             The following Cards Co-op members were moved to inactive status:
-            {"".join(tag(nation) for nation in inactive)}
+            {"".join(nation for nation in inactive)}
             [/div]
         """
     )
 
     return header + body + footer
+
+
+# TODO consider making the month go from 31 to 31, since the dump is generated after the day
+# although the distinction may be less meaningful considering timezones
+# but 31 to 31 would be NS timezone
 
 
 def main() -> None:
@@ -165,15 +228,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Count the issues answered by a set of nations."
     )
-
-    # TODO add subcommands
-    # dates (takes two dates) and month (takes 1 year-month)
-
-    # output can be optional (default is based on mode)
-    # maybe have source be optional? for XKI there is a reasonable default, but not in general
-    # have option to read config file?
-
-    # add option to generate formatted post output
 
     subparsers = parser.add_subparsers(
         help="The possible modes, rerun with [mode] -h for more info.", dest="sub",
@@ -195,8 +249,6 @@ def main() -> None:
         ),
     )
 
-    # TODO probably change this and the output check back to month only
-
     # monthParser.add_argument(
     parser.add_argument(
         "-r",
@@ -204,17 +256,26 @@ def main() -> None:
         action="store_true",
         help=(
             "Create output in report mode. Produces a formatted file in "
-            "Issue Payout Reports folder for the given month."
+            "Issue Payout Reports folder for the given month. "
+            "The report is labelled using the month of the starting date."
         ),
     )
 
+    # XKI Puppet List
+    default_source = (
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
+        "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1588413756&single=true&output=tsv"
+    )
+
     parser.add_argument(
-        "source",
+        "-s",
+        "--source",
         help=(
             """URL or file name to retrieve nation list from. Expects either
             one or two nations seperated by a tab per line, where the second
-            is interpreted as the puppetmaster."""
+            is interpreted as the puppetmaster. Defaults to the XKI puppets URL."""
         ),
+        default=default_source,
     )
 
     parser.add_argument(
@@ -224,12 +285,10 @@ def main() -> None:
         help="Makes the script source from a file instead of URL.",
     )
 
-    # TODO consider the output argument and its style
-
     parser.add_argument(
-        "output",
+        "-o",
+        "--output",
         help="File name to write (raw) output to. Outputs to stdout if not provided.",
-        nargs="?",
         default=None,
     )
 
@@ -240,12 +299,6 @@ def main() -> None:
         args = parser.parse_args(shlex.split(inputString))
 
     requester = nsapi.NSRequester(config.userAgent)
-
-    # XKI Puppet List
-    default_source = (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
-        "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1588413756&single=true&output=tsv"
-    )
 
     # Get input data
     if args.file:
@@ -304,10 +357,6 @@ def main() -> None:
             write_output(file)
     else:
         write_output(sys.stdout)
-
-    # TODO report formatting 2 issues:
-    # line indendation is weird (maybe not a real issue)
-    # account tags probably need to be formatted better (e.g. lower, no space)
 
     # Generate report if chosen.
     # Check the subcommand first, because if month
