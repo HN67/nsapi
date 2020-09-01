@@ -136,7 +136,7 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
                 f"The following payments were earned in {month_name} {month.year} for "
                 " XKI Cards Co-operative card farmers, paid at a"
                 " [url=https://10000islands.proboards.com/post/1787776/thread][u]rate"
-                "[/u][/url] of {wage} {taco} per issue answered under"
+                f"[/u][/url] of {wage} {taco} per issue answered under"
                 " [url=https://10000islands.proboards.com/thread/"
                 "39475/312-xki-cards-operative-passed]"
                 "[u]NS 312-2[/u][/url]."
