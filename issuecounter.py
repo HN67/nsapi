@@ -74,10 +74,16 @@ def count_change(
     return delta, invalid
 
 
-def _get_forum_names() -> t.Mapping[str, t.Optional[str]]:
+# TODO tsv has a trailing tab for single column rows, which is
+# not what we assumed. must be fixed.
+# also, this probably needs to be fixed for the puppetmaster retrieveal,
+# it only wasnt a problem because each puppet had a master.
+
+
+def _get_forum_names() -> t.Mapping[str, str]:
     """Returns a mapping of main nation names to forum usernames.
 
-    If the main nation does not have a forum account, the value will be None.
+    If the main nation does not have a forum account, it will not be in the map.
 
     This method only provides nations part of the XKI Card Coop program.
     """
@@ -92,10 +98,10 @@ def _get_forum_names() -> t.Mapping[str, t.Optional[str]]:
     # 2D table: each first-level element is a row,
     # each row contains 1st element main nation and
     # optionally 2nd forum username.
-    # If there is no username, the row is len==1
+    # If there is no username, the second element should be "", which is falsy
     table = [line.split("\t") for line in text.split("\r\n")]
 
-    usernames = {row[0]: row[1] if len(row) > 1 else None for row in table}
+    usernames = {row[0]: row[1] for row in table if row[1]}
 
     logging.info("Retrieved nation-forum mappings")
 
@@ -116,7 +122,7 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
         Returns None if the nation does not have a forum account.
         """
         # return "@" + "".join(char for char in nation.lower() if char.isalnum())
-        return forum_names[nation] if nation in forum_names else None
+        return "@" + forum_names[nation] if nation in forum_names else None
 
     taco = (
         '[img class="smile" style="max-width:100%;" alt=":-X"'
@@ -126,22 +132,27 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
 
     month_name = calendar.month_name[month.month]
     # TODO fix this header
-    header = textwrap.dedent(
-        f"""\
-        [div align="center"][img
-            style="max-width:20%;"
-             src="http://10000islands.net/gallery/gallery-images/XKICardsCoop1.png"
-        ][/div]
-
-        The following payments were earned in {month_name} {month.year} for XKI Cards Co-operative \
-        card farmers, paid at a [
-            url=https://10000islands.proboards.com/post/1787776/thread
-        ][u]rate[/u][/url] of 10 {taco} per issue answered under [
-            url=https://10000islands.proboards.com/thread/39475/312-xki-cards-operative-passed
-        ][u]NS 312-2[/u][/url].
-
-        """
+    header = "\n".join(
+        (
+            (
+                '[div align="center"][img style="max-width:20%;"'
+                ' src="http://10000islands.net/gallery/gallery-images/XKICardsCoop1.png"][/div]'
+            ),
+            ("\n"),
+            (
+                f"The following payments were earned in {month_name} {month.year} for "
+                " XKI Cards Co-operative card farmers, paid at a"
+                " [url=https://10000islands.proboards.com/post/1787776/thread][u]rate"
+                "[/u][/url] of {wage} {taco} per issue answered under"
+                " [url=https://10000islands.proboards.com/thread/"
+                "39475/312-xki-cards-operative-passed]"
+                "[u]NS 312-2[/u][/url]."
+            ),
+            ("\n\n"),
+        )
     )
+
+    # TODO tagging is borked
 
     rows = []
     inactive = []
@@ -163,7 +174,7 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
                 textwrap.dedent(
                     f"""\
                     [tr]
-                        {tdh}{nationTag} [/td]
+                        {tdh}{nationTag}[/td]
                         {tdh}{issues}[/td]
                         {tdh}{payout} {taco}[/td]
                     [/tr]
@@ -309,15 +320,20 @@ def main() -> None:
         nations = [line.split("\t") for line in text.split("\r\n")]
 
     # Convert to puppetmaster dicts
-    puppets = {
-        nation[0]: nation[1] if len(nation) > 1 else nation[0] for nation in nations
-    }
+    # nation[1] is "" if no master, which is falsy
+    puppets = {nation[0]: nation[1] if nation[1] else nation[0] for nation in nations}
 
     # Convert dates to start and end date objects
     if args.sub == "dates":
         start = datetime.date.fromisoformat(args.start)
         end = datetime.date.fromisoformat(args.end)
     elif args.sub == "month":
+        # TODO change from 01 to 31 (or last) day of month, so
+        # for 08 -> 07-31 to 08-31
+        # also, will need to change anything that uses `start` to get the month
+        # change the current start into a month variable to be used for months (it has 01 day,
+        # but that should be irellevent.)
+        # will also need to add `month` variable to dates subcommand, probably based on end
         start = datetime.date.fromisoformat(args.month + "-01")
         # There are already general solutions to add months to a date,
         # such as the library dateutil (with its relativedelta), but
