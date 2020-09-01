@@ -1,5 +1,6 @@
 # By default, ignore any data files
 *.csv
+*.tsv
 *.json
 *.txt
 *.xml.gz
