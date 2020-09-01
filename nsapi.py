@@ -313,6 +313,18 @@ class ResourceManager:
             json.dump(marker, f)
 
 
+class APIError(Exception):
+    """Error interacting with NationStates API."""
+
+
+class AuthError(APIError):
+    """Error with authentication for NS API."""
+
+
+class ResourceError(APIError, ValueError):
+    """Error with retrieving a resource from NS API."""
+
+
 class DumpManager:
     """Specific class to manage downloading and updating data dumps from NS API"""
 
@@ -718,6 +730,15 @@ class Nation(API):
         # Inject auth updating, allows using pin
         logging.info("Making Nation request")
         response = super().shards_response(*shards, headers=headers, **parameters)
+        # TODO finish error
+        # response.ok is true iff status_code < 400
+        if not response.ok:
+            if response.status_code == 404:
+                raise ResourceError(f"Nation '{self.nationname}' does not exist.")
+            elif response.status_code == 403:
+                raise AuthError(f"Authentication failed for '{self.nationname}'.")
+            else:
+                raise APIError(f"Error with retrieving info for '{self.nationname}'.")
         if self.auth:
             self.auth.update(response)
         return response
