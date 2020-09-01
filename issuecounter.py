@@ -74,12 +74,6 @@ def count_change(
     return delta, invalid
 
 
-# TODO tsv has a trailing tab for single column rows, which is
-# not what we assumed. must be fixed.
-# also, this probably needs to be fixed for the puppetmaster retrieveal,
-# it only wasnt a problem because each puppet had a master.
-
-
 def _get_forum_names() -> t.Mapping[str, str]:
     """Returns a mapping of main nation names to forum usernames.
 
@@ -131,7 +125,6 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
     tdh = '[td style="text-align:center;border:1px solid rgb(255, 255, 255);padding:3px;"]'
 
     month_name = calendar.month_name[month.month]
-    # TODO fix this header
     header = "\n".join(
         (
             (
@@ -151,8 +144,6 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
             ("\n\n"),
         )
     )
-
-    # TODO tagging is borked
 
     rows = []
     inactive = []
@@ -223,11 +214,6 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
     )
 
     return header + body + footer
-
-
-# TODO consider making the month go from 31 to 31, since the dump is generated after the day
-# although the distinction may be less meaningful considering timezones
-# but 31 to 31 would be NS timezone
 
 
 def main() -> None:
@@ -327,33 +313,16 @@ def main() -> None:
     if args.sub == "dates":
         start = datetime.date.fromisoformat(args.start)
         end = datetime.date.fromisoformat(args.end)
+        # Usually makes sense to have the 'month' (for reports) be the ending date
+        month = end.replace(day=1)
     elif args.sub == "month":
-        # TODO change from 01 to 31 (or last) day of month, so
-        # for 08 -> 07-31 to 08-31
-        # also, will need to change anything that uses `start` to get the month
-        # change the current start into a month variable to be used for months (it has 01 day,
-        # but that should be irellevent.)
-        # will also need to add `month` variable to dates subcommand, probably based on end
-        start = datetime.date.fromisoformat(args.month + "-01")
-        # There are already general solutions to add months to a date,
-        # such as the library dateutil (with its relativedelta), but
-        # since this is a small script, the goal is to have fewer dependencies.
-        # To that end, we homeroll a small formula. If the nsapi project and interactions
-        # with datetime continue to grow, a dependency such as dateutil may eventually have
-        # justification to be added.
-        # The logic used here to get the next month is not at all general,
-        # however, we can make several assumptions since we are not working with
-        # an arbitrary date.
-        # We know every month has day 1, so we dont need to worry about 31 -> 28 for instance.
-        # One edgecase that must be handled is when start month is 12, then end -> 1 (not 13)
-        # and year is incremented.
-        # We add start.month // 12 to the year, since month is in [1, 12]. If month is [1, 11],
-        # then // 12 is 0, if month == 12, then // 12 is 1, which is desired because we are adding
-        # a month to 12 (December) so the year should increment.
-        # To calculate the month we use % (modulo) to do wraparound, but % wrap only works
-        # on 0-index sets, so we convert to [0, 11] first, add 1, modulate, and then convert back,
-        # with (start.month - 1 + 1) % 12 + 1, which is equiv to start.month % 12 + 1
-        end = datetime.date(start.year + start.month // 12, start.month % 12 + 1, 1)
+        month = datetime.date.fromisoformat(args.month + "-01")
+        # Last day of previous month, i.e. 08 -> 07-31
+        start = month - datetime.timedelta(days=1)
+        # Last day of this month, i.e. 08 -> 08-31
+        end = month.replace(day=calendar.monthrange(month.year, month.month)[1])
+
+    logging.info("month: %s start: %s end: %s", month, start, end)
 
     counts = count_change(requester, puppets.keys(), start, end)
     changes = counts[0]
