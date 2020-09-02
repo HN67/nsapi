@@ -236,6 +236,13 @@ def main() -> None:
 
     datesParser.add_argument("end", help="The end date, in YYYY-MM-DD format.")
 
+    datesParser.add_argument(
+        "-m",
+        "--month",
+        help="The month to use for a report. Defaults to month of end date.",
+        default=None,
+    )
+
     monthParser = subparsers.add_parser("month")
 
     monthParser.add_argument(
@@ -313,8 +320,11 @@ def main() -> None:
     if args.sub == "dates":
         start = datetime.date.fromisoformat(args.start)
         end = datetime.date.fromisoformat(args.end)
-        # Usually makes sense to have the 'month' (for reports) be the ending date
-        month = end.replace(day=1)
+        # Usually makes sense to have the 'month' (for reports) be the ending date if not provided
+        if args.month:
+            month = datetime.date.fromisoformat(args.month + "-01")
+        else:
+            month = end.replace(day=1)
     elif args.sub == "month":
         month = datetime.date.fromisoformat(args.month + "-01")
         # Last day of previous month, i.e. 08 -> 07-31
