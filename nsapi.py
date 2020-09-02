@@ -426,7 +426,7 @@ class DumpManager:
         update: bool = True,
     ) -> Generator[SParser, None, None]:
         """Iteratively parses each object in a dump.
-        
+
         See .nations or .regions for more info.
         """
 
