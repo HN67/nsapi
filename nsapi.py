@@ -416,8 +416,6 @@ class DumpManager:
                     yield element
                     root.clear()
 
-    # TODO consider making a private common method for the nations and regions dump
-
     def _named_daily_dump(
         self,
         resourceName: str,
@@ -427,7 +425,10 @@ class DumpManager:
         location: str = None,
         update: bool = True,
     ) -> Generator[SParser, None, None]:
-        """Iteratively parses each object in a dump."""
+        """Iteratively parses each object in a dump.
+        
+        See .nations or .regions for more info.
+        """
 
         if date is None:
             resource = self.resources[resourceName]
@@ -745,7 +746,6 @@ class Nation(API):
         # Inject auth updating, allows using pin
         logging.info("Making Nation request")
         response = super().shards_response(*shards, headers=headers, **parameters)
-        # TODO finish error
         # response.ok is true iff status_code < 400
         if not response.ok:
             if response.status_code == 404:
