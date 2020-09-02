@@ -261,7 +261,8 @@ def main() -> None:
         help=(
             "Create output in report mode. Produces a formatted file in "
             "Issue Payout Reports folder for the given month. "
-            "The report is labelled using the month of the starting date."
+            "The report is labelled using the month of the starting date, "
+            "unless specified by month parameter."
         ),
     )
 
@@ -359,7 +360,7 @@ def main() -> None:
     # this avoids any exception due to lazy eval
     # if args.sub == "month" and args.report:
     if args.report:
-        report = generate_report(start, collected_count)
+        report = generate_report(month, collected_count)
         # Check for output directory
         if not os.path.isdir(nsapi.absolute_path("IssuePayoutReports")):
             os.mkdir(nsapi.absolute_path("IssuePayoutReports"))
@@ -367,7 +368,7 @@ def main() -> None:
         with open(
             nsapi.absolute_path(
                 # Format the month to always be 2-digit
-                f"IssuePayoutReports/issuePayoutReport_{start.year}-{start.month:0>2d}.txt"
+                f"IssuePayoutReports/issuePayoutReport_{month.year}-{month.month:0>2d}.txt"
             ),
             "w",
         ) as f:
