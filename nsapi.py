@@ -21,6 +21,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Type,
     TypeVar,
 )
 
@@ -417,6 +418,32 @@ class DumpManager:
 
     # TODO consider making a private common method for the nations and regions dump
 
+    def _named_daily_dump(
+        self,
+        resourceName: str,
+        tagName: str,
+        parser: Type[SParser],
+        date: datetime.date = None,
+        location: str = None,
+        update: bool = True,
+    ) -> Generator[SParser, None, None]:
+        """Iteratively parses each object in a dump."""
+
+        if date is None:
+            resource = self.resources[resourceName]
+        else:
+            resource = self.archived_dump(date, resourceName)
+
+        if update:
+            self.resourceManager.update(resource, location)
+        else:
+            self.resourceManager.verify(resource, location)
+
+        return (
+            parser.from_xml(node)
+            for node in self.retrieve_iterator(resource, location, tags={tagName})
+        )
+
     def nations(
         self, date: datetime.date = None, location: str = None, update: bool = True
     ) -> Generator[NationStandard, None, None]:
@@ -426,19 +453,13 @@ class DumpManager:
         otherwise it will only be downloaded if it doesnt exist.
         Note that archive dumps will never be outdated.
         """
-        if date is None:
-            resource = self.resources["nations"]
-        else:
-            resource = self.archived_dump(date, "nations")
-
-        if update:
-            self.resourceManager.update(resource, location)
-        else:
-            self.resourceManager.verify(resource, location)
-
-        return (
-            NationStandard.from_xml(node)
-            for node in self.retrieve_iterator(resource, location, tags={"NATION"})
+        return self._named_daily_dump(
+            "nations",
+            "NATION",
+            NationStandard,
+            date=date,
+            location=location,
+            update=update,
         )
 
     def regions(
@@ -450,19 +471,13 @@ class DumpManager:
         otherwise it will only be downloaded if it doesnt exist.
         Note that archive dumps will never be outdated.
         """
-        if date is None:
-            resource = self.resources["regions"]
-        else:
-            resource = self.archived_dump(date, "regions")
-
-        if update:
-            self.resourceManager.update(resource, location)
-        else:
-            self.resourceManager.verify(resource, location)
-
-        return (
-            RegionStandard.from_xml(node)
-            for node in self.retrieve_iterator(resource, location, tags={"REGION"})
+        return self._named_daily_dump(
+            "regions",
+            "REGION",
+            RegionStandard,
+            date=date,
+            location=location,
+            update=update,
         )
 
     def cards(
@@ -1498,6 +1513,9 @@ class RegionStandard:
             lastUpdate=int(content(shards["LASTUPDATE"])),
         )
 
+
+# StandardParser
+SParser = TypeVar("SParser", NationStandard, RegionStandard)
 
 # # XMLTransformer/Parser logic
 # """Tools for describing the transformation from XML to Python"""
