@@ -1,7 +1,5 @@
 """Autologins a list of nations, with the option of also generating autologin keys."""
 
-# TODO show regions as well
-
 import dataclasses
 import logging
 from typing import Dict, Mapping, Optional
@@ -99,7 +97,7 @@ def main() -> None:
     if outputPath != "":
         with open(nsapi.absolute_path(outputPath), "w") as file:
             for nation, result in output.items():
-                print(f"{nation},{result.autologin}", file=file)
+                print(f"{nation},{result.autologin if result else None}", file=file)
 
 
 if __name__ == "__main__":
