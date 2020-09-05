@@ -23,7 +23,9 @@ def main() -> None:
     nation = input("Nation: ")
 
     try:
-        autologin = requester.get_autologin(nation, getpass.getpass("Password: "))
+        autologin = requester.nation(
+            nation, auth=nsapi.Auth(password=getpass.getpass("Password: "))
+        ).get_autologin()
     except KeyError:
         print("Something went wrong, likely incorrect password")
     else:
