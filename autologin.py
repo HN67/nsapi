@@ -80,9 +80,11 @@ def main() -> None:
     nations = {}
     with open(nsapi.absolute_path(inputPath), "r") as file:
         for line in file:
-            # Split exactly once to allow passwords that contain commas
-            nation, password = line.strip().split(",", maxsplit=1)
-            nations[nation] = password
+            # Ignore empty lines
+            if not line == "\n":
+                # Split exactly once to allow passwords that contain commas
+                nation, password = line.strip().split(",", maxsplit=1)
+                nations[nation] = password
 
     output = autologin(requester, nations, isAutologin)
 
