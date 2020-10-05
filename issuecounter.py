@@ -30,6 +30,8 @@ def count_change(
 ) -> t.Tuple[t.Mapping[str, int], t.Iterable[str]]:
     """For each nation provided, retrieves the number of issues
     they have answered between the two dates.
+
+    The returned mapping contains .clean_format version of nation names.
     """
 
     starting = {}
@@ -41,13 +43,13 @@ def count_change(
     for nation in requester.dumpManager().nations(date=start):
         # Check if either normal or clean name was provided
         if nation.name in nations or nsapi.clean_format(nation.name) in nations:
-            starting[nation.name] = nation.issuesAnswered
+            starting[nsapi.clean_format(nation.name)] = nation.issuesAnswered
 
     # Get the ending number of issues
     for nation in requester.dumpManager().nations(date=end):
         # Check if either normal or clean name was provided
         if nation.name in nations or nsapi.clean_format(nation.name) in nations:
-            ending[nation.name] = nation.issuesAnswered
+            ending[nsapi.clean_format(nation.name)] = nation.issuesAnswered
 
     # Check/make sure both starting/ending have all the nations
     # (e.g. differences may occur when a nation ceased to exist, was founded, etc)
@@ -67,8 +69,10 @@ def count_change(
     # Calculate the difference between end and start for each nation in
     # starting, which should have identical keys to ending so it doesnt matter
     # which one we iterate through
+    # Standardize nation name formatting
     delta = {
-        nationName: ending[nationName] - starting[nationName] for nationName in starting
+        nsapi.clean_format(nationName): ending[nationName] - starting[nationName]
+        for nationName in starting
     }
 
     return delta, invalid
@@ -315,7 +319,13 @@ def main() -> None:
 
     # Convert to puppetmaster dicts
     # nation[1] is "" if no master, which is falsy
-    puppets = {nation[0]: nation[1] if nation[1] else nation[0] for nation in nations}
+    # Clean the format of all the names
+    puppets = {
+        nsapi.clean_format(nation[0]): nsapi.clean_format(nation[1])
+        if nation[1]
+        else nsapi.clean_format(nation[0])
+        for nation in nations
+    }
 
     # Convert dates to start and end date objects
     if args.sub == "dates":
