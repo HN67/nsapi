@@ -84,6 +84,8 @@ def _get_forum_names() -> t.Mapping[str, str]:
     If the main nation does not have a forum account, it will not be in the map.
 
     This method only provides nations part of the XKI Card Coop program.
+
+    Guarenteed to return cleaned format of nation names.
     """
     source = (
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
@@ -99,7 +101,7 @@ def _get_forum_names() -> t.Mapping[str, str]:
     # If there is no username, the second element should be "", which is falsy
     table = [line.split("\t") for line in text.split("\r\n")]
 
-    usernames = {row[0]: row[1] for row in table if row[1]}
+    usernames = {nsapi.clean_format(row[0]): row[1] for row in table if row[1]}
 
     logging.info("Retrieved nation-forum mappings")
 
