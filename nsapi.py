@@ -955,6 +955,20 @@ class World(API):
         # https://docs.python.org/2/library/itertools.html#itertools.chain
         return (Happening(node) for node in itertools.chain.from_iterable(rootList))
 
+    def regions_by_tag(self, *tags: str) -> Iterable[str]:
+        """Returns an iterable of the names of all regions,
+        filtered by the tags provided.
+
+        Use the syntax '-tag' to omit regions with that tag
+        instead of include.
+
+        Wraps the API provideded by
+        'https://www.nationstates.net/cgi-bin/api.cgi?q=regionsbytag;tags='
+        """
+        node = self.shards_xml("regionsbytag", tags=",".join(tags))["regions"]
+        text = node.text if node.text else ""
+        return text.split(",")
+
 
 class WA(API):
     """Represents a live connection the the API of a WA Council on NS
