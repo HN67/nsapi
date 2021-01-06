@@ -2,6 +2,18 @@
 See https://www.nationstates.net/pages/api.html for NS API details
 """
 
+# Reconsider absolute_path:
+# Linking everything to a __file__ based path has several problems,
+# in that it works well when nsapi.py is a script, but gives the user less control than cwd
+# essentially trades control for convience (not all users may understand cwd)
+# However, it can break completely when doing things such as compiling with pyinstaller,
+# and probably wont work if trying to make a package.
+# The probably conclusion is that abs_path is useful for scripts, but not the kind
+# of package/library nsapi is becoming.
+# A related concept is the data dumps, since they produce the most files (at decently large ones).
+# Ideally, there should be an easy way to remove a dump, maybe automatically?
+# Not sure how that would look, maybe once its done iterating it removes it.
+
 # Allow for typing using not yet defined classes
 from __future__ import annotations
 
@@ -10,6 +22,7 @@ from __future__ import annotations
 import logging
 from typing import (
     Callable,
+    Collection,
     Container,
     Dict,
     Generator,
@@ -806,6 +819,25 @@ class Nation(API):
         nodes = self.shards_xml("dossier", "rdossier")
         return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
 
+    def censuses(self) -> Mapping[int, Census]:
+        """Returns a sequence of all the existing censuses"""
+        return {
+            # Map id to the whole census object
+            census.id: census
+            # The dict is created from a generating parsing the nodes
+            for census in (
+                Census.from_xml(node)
+                # an XML node can be used as an iterator, where it yields children
+                for node in self.shards_xml(
+                    "census",
+                    # we want to grab all the values, since a Census requires them
+                    mode=joined_parameter("score", "rank", "rrank", "prank", "prrank"),
+                    # gets all the different stats for us
+                    scale="all",
+                )["census"]
+            )
+        }
+
     def cards_xml(self, *shards: str) -> Mapping[str, etree.Element]:
         """Seperate method to make requests to the cards apis associated with a nation,
         since its different than the nation api.
@@ -906,6 +938,10 @@ class Region(API):
 
     def __init__(self, requester: NSRequester, name: str) -> None:
         super().__init__(requester, "region", name)
+
+    def nations(self) -> Collection[str]:
+        """Returns a collection of the member nations of this region."""
+        return self.shard("nations").split(":")
 
 
 class World(API):
@@ -1269,6 +1305,48 @@ class DeckInfo:
             numCards=int(data.simple("NUM_CARDS")),
             rank=int(data.simple("RANK")),
             regionRank=int(data.simple("REGION_RANK")),
+        )
+
+
+@dataclasses.dataclass()
+class Census:
+    """Class that represents a NS census category.
+
+    id corresponds to the trend page
+    (such as https://www.nationstates.net/nation=hn67/detail=trend/censusid=78)
+    or can be found at https://forum.nationstates.net/viewtopic.php?f=15&t=159491.
+
+    score is the raw value of the census.
+
+    rank is the world/regional position.
+
+    percentage is the top percentage group the census value is part of,
+    e.g. percentage=15 means "top 15%".
+    """
+
+    id: int
+
+    score: float
+
+    rank: int
+    regionalRank: int
+
+    percentage: float
+    regionalPercentage: float
+
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Census:
+        """Creates a Census from an XML SCALE node
+        (See https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=census&mode=score+rank+rrank+prank+prrank&scale=all)
+        """  # noqa pylint: disable=line-too-long
+        parse = NodeParse(node)
+        return cls(
+            id=int(node.attrib["id"]),
+            score=float(parse.simple("SCORE")),
+            rank=int(parse.simple("RANK")),
+            regionalRank=int(parse.simple("RRANK")),
+            percentage=float(parse.simple("PRANK")),
+            regionalPercentage=float(parse.simple("PRRANK")),
         )
 
 
