@@ -819,8 +819,11 @@ class Nation(API):
         nodes = self.shards_xml("dossier", "rdossier")
         return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
 
-    def censuses(self) -> Mapping[int, Census]:
-        """Returns a sequence of all the existing censuses"""
+    def censuses(self, *scales: int) -> Mapping[int, Census]:
+        """Returns a mapping of all requested census scales.
+        
+        If no scales are provided, defaults to all existing census scales.
+        """
         return {
             # Map id to the whole census object
             census.id: census
@@ -833,7 +836,9 @@ class Nation(API):
                     # we want to grab all the values, since a Census requires them
                     mode=joined_parameter("score", "rank", "rrank", "prank", "prrank"),
                     # gets all the different stats for us
-                    scale="all",
+                    scale=joined_parameter(*(str(scale) for scale in scales))
+                    if scales
+                    else "all",
                 )["census"]
             )
         }
