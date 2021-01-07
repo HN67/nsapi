@@ -25,11 +25,14 @@ def residents(requester: nsapi.NSRequester, region: str) -> Collection[str]:
 
 def listLinks(nations: Iterable[str]) -> str:
     """Returns a string containing the given nations formatted into links,
-    
-    seperated by newlines (with trailing)."""
+    seperated by newlines (with trailing).
+    """
 
     return (
-        "\n".join(f"https://www.nationstates.net/nation={nsapi.clean_format(nation)}" for nation in nations)
+        "\n".join(
+            f"https://www.nationstates.net/nation={nsapi.clean_format(nation)}"
+            for nation in nations
+        )
         + "\n"
     )
 
