@@ -821,7 +821,7 @@ class Nation(API):
 
     def censuses(self, *scales: int) -> Mapping[int, Census]:
         """Returns a mapping of all requested census scales.
-        
+
         If no scales are provided, defaults to all existing census scales.
         """
         return {
