@@ -814,6 +814,10 @@ class Nation(API):
             as_xml(self.requester.parameter_request(nation=self.name).text)
         )
 
+    def wa(self) -> str:
+        """Returns the WA status of this Nation"""
+        return self.shards("wa")["unstatus"]
+
     def dossier(self) -> Dossier:
         """Returns a Dossier representing the dossier of this nation"""
         nodes = self.shards_xml("dossier", "rdossier")
