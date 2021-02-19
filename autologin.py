@@ -22,6 +22,7 @@ class Result:
 
     autologin: str
     region: str
+    wa: bool
 
 
 def autologin(
@@ -41,11 +42,15 @@ def autologin(
             nationAPI = requester.nation(nation, nsapi.Auth(password=password))
         # Try making the shard request
         try:
-            shards = nationAPI.shards("region", "ping")
-        except nsapi.AuthError:
+            shards = nationAPI.shards("region", "ping", "wa")
+        except nsapi.APIError:
             output[nation] = None
         else:
-            output[nation] = Result(nationAPI.get_autologin(), shards["region"])
+            output[nation] = Result(
+                autologin=nationAPI.get_autologin(),
+                region=shards["region"],
+                wa=shards["unstatus"].startswith("WA"),
+            )
     return output
 
 
@@ -91,7 +96,10 @@ def main() -> None:
     # Summarize results
     for nation, result in output.items():
         if result:
-            print(f"Successfully logged {nation} in. (Region: {result.region})")
+            string = f"Successfully logged {nation} in. (Region: {result.region})"
+            if result.wa:
+                string += " (WA)"
+            print(string)
         else:
             print(f"Failed to log in {nation}. Likely an incorrect password.")
 
