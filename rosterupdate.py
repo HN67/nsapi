@@ -24,9 +24,12 @@ class Result:
     wa: t.Optional[str]
 
 
-def is_wa(requester: nsapi.NSRequester, nation: str):
+def is_wa(requester: nsapi.NSRequester, nation: str) -> bool:
     """Checks if the nation is in the WA"""
-    return requester.nation(nation).wa().startswith("WA")
+    try:
+        return requester.nation(nation).wa().startswith("WA")
+    except nsapi.ResourceError:
+        return False
 
 
 def check_roster(
@@ -38,12 +41,34 @@ def check_roster(
     If none are in the WA, prompts for a new nation.
     """
     output = {}
-    for nation, puppets in nations.keys():
-        [puppet for puppet in puppets if is_wa(requester, puppet)]
+    for nation, puppets in nations.items():
+        # Find current WA nation(s): SHOULD NOT BE PLURAL, WARN IF SO
+        WAs = []
+        if is_wa(requester, nation):
+            WAs.append(nation)
+        WAs.extend(puppet for puppet in puppets if is_wa(requester, puppet))
+        # Warn if len > 1
+        if len(WAs) > 1:
+            print(f"WARNING: {nation} has multiple WA nations: {WAs}")
+        # Construct Result object
+        if WAs:
+            result = Result(WAs[0])
+        else:
+            result = Result(None)
+        output[nation] = result
+    return output
 
 
 def print_output(file: t.TextIO, output: t.Mapping[str, Result]) -> None:
     """Prints output to to given stream"""
+    sortedOutput: t.List[t.Tuple[str, Result]] = sorted(
+        output.items(), key=lambda pair: pair[0]
+    )
+    for nation, result in sortedOutput:
+        if result.wa:
+            print(f"{nation}: {result.wa}", file=file)
+        else:
+            print(f"{nation}: No known WA", file=file)
 
 
 def main() -> None:
