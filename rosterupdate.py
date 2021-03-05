@@ -9,7 +9,7 @@ import config
 import nsapi
 
 # Set logging level
-level = logging.WARNING
+level = logging.INFO
 logging.basicConfig(level=level)
 # Name logger
 logger = logging.getLogger()
@@ -52,10 +52,10 @@ def check_roster(
             print(f"WARNING: {nation} has multiple WA nations: {WAs}")
         # Construct Result object
         if WAs:
-            result = Result(WAs[0])
+            result = Result(nsapi.clean_format(WAs[0]))
         else:
             result = Result(None)
-        output[nation] = result
+        output[nsapi.clean_format(nation)] = result
     return output
 
 
@@ -79,6 +79,9 @@ def main() -> None:
     )
     inputPath = input("File: ")
 
+    print("Specify a json file to load old WA data from for comparison.")
+    oldDataPath = input("Old Data File: ")
+
     print(
         "\nEnter a file to generate output in, or enter nothing to output to standard output."
     )
@@ -90,14 +93,25 @@ def main() -> None:
     with open(nsapi.absolute_path(inputPath), "r") as file:
         nations: t.Mapping[str, t.Collection[str]] = json.load(file)
 
+    # collect current/old roster
+    with open(nsapi.absolute_path(oldDataPath), "r") as file:
+        current: t.Mapping[str, str] = json.load(file)
+
     output = check_roster(requester, nations)
+
+    # compare
+    changes = {
+        nation: output[nation] if nation in output else Result(None)
+        for nation, oldWA in current.items()
+        if nation not in output or output[nation].wa != oldWA
+    }
 
     # Summarize results
     if outputPath != "":
         with open(nsapi.absolute_path(outputPath), "w") as file:
-            print_output(file, output)
+            print_output(file, changes)
     else:
-        print_output(sys.stdout, output)
+        print_output(sys.stdout, changes)
 
 
 if __name__ == "__main__":
