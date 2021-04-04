@@ -6,6 +6,7 @@
 *.xml.gz
 *.xml
 *.gz
+*.log
 
 # Include certain data files
 !legendaryCards.json
