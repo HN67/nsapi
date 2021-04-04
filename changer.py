@@ -26,7 +26,7 @@ class Change:
 
 def delay() -> None:
     """Delay long enough to obey HTML ratelimits."""
-    time.sleep(6.2)
+    time.sleep(6.1)
 
 
 user_agent = input("Please enter a user agent (i.e. nation name): ")
@@ -59,7 +59,6 @@ with open(data_file, "r") as file:
     for line in file:
         if not line == "\n":
             pieces = line.strip().split(",")
-            print(line, pieces)
             changes.append(Change(pieces[0], pieces[1], pieces[2]))
 
 logger.info("Starting session")
@@ -73,6 +72,8 @@ for change in changes:
     logger.info("Operating on nation %s", change.nation)
 
     # open login page
+    logger.info("Sleeping to meet ratelimit")
+    delay()
     logger.info("Opening login page.")
     bot.open("https://www.nationstates.net/page=login/template-overall=none")
 
