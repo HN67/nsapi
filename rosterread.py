@@ -1,10 +1,11 @@
 """Reads plaintext of the roster and converts to JSON"""
 
-import nsapi
-
 import json
 import re
+import sys
 import typing as t
+
+import nsapi
 
 
 def read_plain(lines: t.Iterable[str]) -> t.Mapping[str, str]:
@@ -25,16 +26,11 @@ def read_plain(lines: t.Iterable[str]) -> t.Mapping[str, str]:
 def main() -> None:
     """Main function"""
 
-    inputPath = input("Input file: ")
-    outputPath = input("Output file: ")
-
     # Read input
-    with open(inputPath, "r") as file:
-        data = read_plain(file.readlines())
+    data = read_plain(sys.stdin.readlines())
 
     # Write output
-    with open(outputPath, "w") as file:
-        json.dump(data, file)
+    json.dump(data, sys.stdout)
 
 
 if __name__ == "__main__":
