@@ -1,4 +1,6 @@
 """Checks and verifies a WA roster"""
+
+import argparse
 import dataclasses
 import json
 import logging
@@ -71,32 +73,27 @@ def print_output(file: t.TextIO, output: t.Mapping[str, Result]) -> None:
             print(f"{nation}: No known WA", file=file)
 
 
-def main() -> None:
+def main(
+    oldRosterPath: t.Optional[str], outputPath: t.Optional[str], dataPath: str
+) -> None:
     """Main function"""
-
-    print(
-        "Specify a json file to load the nation data from. (Based on this script's directory)"
-    )
-    inputPath = input("File: ")
-
-    print("Specify a json file to load old WA data from for comparison.")
-    oldDataPath = input("Old Data File: ")
-
-    print(
-        "\nEnter a file to generate output in, or enter nothing to output to standard output."
-    )
-    outputPath = input("Output File: ")
 
     requester = nsapi.NSRequester(config.userAgent)
 
     # Collect data
-    with open(nsapi.absolute_path(inputPath), "r") as file:
+    with open(nsapi.absolute_path(dataPath), "r") as file:
         nations: t.Mapping[str, t.Collection[str]] = json.load(file)
 
     # collect current/old roster
-    with open(nsapi.absolute_path(oldDataPath), "r") as file:
-        current: t.Mapping[str, str] = json.load(file)
+    current: t.Mapping[str, str]
+    if oldRosterPath:
+        with open(nsapi.absolute_path(oldRosterPath), "r") as file:
+            current = json.load(file)
+    else:
+        # read from stdin
+        current = json.load(sys.stdin)
 
+    # search for current wa
     output = check_roster(requester, nations)
 
     # compare
@@ -107,7 +104,7 @@ def main() -> None:
     }
 
     # Summarize results
-    if outputPath != "":
+    if outputPath:
         with open(nsapi.absolute_path(outputPath), "w") as file:
             print_output(file, changes)
     else:
@@ -115,4 +112,24 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description="Update a WA roster.")
+    parser.add_argument("roster", help="File containing puppet lists, in JSON form.")
+    parser.add_argument(
+        "--current",
+        "-c",
+        dest="current",
+        default=None,
+        help="File to read current roster from, instead of stdin",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        dest="output",
+        default=None,
+        help="File to output to, instead of stdout",
+    )
+
+    args = parser.parse_args()
+
+    main(args.current, args.output, args.roster)
