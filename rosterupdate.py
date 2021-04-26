@@ -68,9 +68,9 @@ def print_output(file: t.TextIO, output: t.Mapping[str, Result]) -> None:
     )
     for nation, result in sortedOutput:
         if result.wa:
-            print(f"{nation}: {result.wa}", file=file)
+            print(f"{nation} - {result.wa}", file=file)
         else:
-            print(f"{nation}: No known WA", file=file)
+            print(f"{nation} - Unknown WA", file=file)
 
 
 def main(
