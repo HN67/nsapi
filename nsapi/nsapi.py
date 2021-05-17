@@ -356,11 +356,11 @@ class DumpManager:
             generationTime,
         ),
         "cardlist_S1": Resource(
-            "https://github.com/HN67/nsapi/raw/master/cardlist_S1.xml.gz",
+            "https://github.com/HN67/nsapi/raw/master/resources/cardlist_S1.xml.gz",
             "cardlist_S1.xml.gz",
         ),
         "cardlist_S2": Resource(
-            "https://github.com/HN67/nsapi/raw/master/cardlist_S2.xml.gz",
+            "https://github.com/HN67/nsapi/raw/master/resources/cardlist_S2.xml.gz",
             "cardlist_S2.xml.gz",
         ),
     }
