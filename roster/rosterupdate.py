@@ -10,6 +10,8 @@ import typing as t
 import config
 import nsapi
 
+from roster import rosterread
+
 # Set logging level
 level = logging.INFO
 logging.basicConfig(level=level)
@@ -73,10 +75,42 @@ def print_output(file: t.TextIO, output: t.Mapping[str, Result]) -> None:
             print(f"{nation} - Unknown WA", file=file)
 
 
-def main(
-    oldRosterPath: t.Optional[str], outputPath: t.Optional[str], dataPath: str
+def compare_wa(
+    old: t.Mapping[str, str], activeWA: t.Mapping[str, Result]
+) -> t.Mapping[str, Result]:
+    """Compares old WA data to scraped active WA data.
+
+    Returns a nation only if its WA has changed.
+    """
+    return {
+        # map to current wa if exists
+        nation: activeWA[nation] if nation in activeWA else Result(None)
+        # iterate over the "old" data usually copied from roster
+        for nation, oldWA in old.items()
+        # filter to only keep nations that either arent tracked in active
+        # or have had their wa change
+        if nation not in activeWA or activeWA[nation].wa != oldWA
+    }
+
+
+def read_old_roster(file: t.TextIO, is_raw: bool = True) -> t.Mapping[str, str]:
+    """Reads the old/current roster from an open file,
+    converting from bbcode to JSON if requested.
+    """
+    if is_raw:
+        return rosterread.read_plain(file.readlines())
+    else:
+        return json.load(file)
+
+
+def update_roster(
+    oldRosterPath: t.Optional[str],
+    outputPath: t.Optional[str],
+    dataPath: str,
+    *,
+    parse_old: bool = True,
 ) -> None:
-    """Main function"""
+    """Update a roster using the given paths."""
 
     requester = nsapi.NSRequester(config.userAgent)
 
@@ -86,22 +120,19 @@ def main(
 
     # collect current/old roster
     current: t.Mapping[str, str]
+
     if oldRosterPath:
         with open(nsapi.absolute_path(oldRosterPath), "r") as file:
-            current = json.load(file)
+            current = read_old_roster(file, parse_old)
     else:
         # read from stdin
-        current = json.load(sys.stdin)
+        current = read_old_roster(sys.stdin, parse_old)
 
     # search for current wa
     output = check_roster(requester, nations)
 
     # compare
-    changes = {
-        nation: output[nation] if nation in output else Result(None)
-        for nation, oldWA in current.items()
-        if nation not in output or output[nation].wa != oldWA
-    }
+    changes = compare_wa(current, output)
 
     # Summarize results
     if outputPath:
@@ -111,7 +142,8 @@ def main(
         print_output(sys.stdout, changes)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Main function"""
 
     parser = argparse.ArgumentParser(description="Update a WA roster.")
     parser.add_argument("roster", help="File containing puppet lists, in JSON form.")
@@ -129,7 +161,18 @@ if __name__ == "__main__":
         default=None,
         help="File to output to, instead of stdout",
     )
+    parser.add_argument(
+        "--json",
+        "-j",
+        dest="as_json",
+        action="store_true",
+        help="Parse the old roster as JSON instead of bbcode",
+    )
 
     args = parser.parse_args()
 
-    main(args.current, args.output, args.roster)
+    update_roster(args.current, args.output, args.roster, parse_old=not args.as_json)
+
+
+if __name__ == "__main__":
+    main()
