@@ -6,6 +6,11 @@ See https://www.nationstates.net/pages/api.html for NS API details
 # Linking everything to a __file__ based path has several problems,
 # in that it works well when nsapi.py is a script, but gives the user less control than cwd
 # essentially trades control for convience (not all users may understand cwd)
+# Users not understanding cwd is unlikely to be a problem; e.g. running a script
+# on windows by double clicking it typically makes the cwd the location of the script
+# If a user ends up using cmd, cwd will still be somewhere sane (user root?) unless in administrator
+# output files should probably be largely put into cwd, but perhaps __file__ is better
+# for data files that the end user doesnt need to see.
 # However, it can break completely when doing things such as compiling with pyinstaller,
 # and probably wont work if trying to make a package.
 # The probably conclusion is that abs_path is useful for scripts, but not the kind
@@ -20,6 +25,7 @@ from __future__ import annotations
 # Standard library modules
 # Code quality
 import logging
+import typing as t
 from typing import (
     Callable,
     Collection,
@@ -56,13 +62,40 @@ import shutil
 import xml.etree.ElementTree as etree
 import requests
 
-# Set logging level
-logging.basicConfig(level=logging.INFO)
-# Reference logger
-logger = logging.getLogger()
-
 # Basic type var used for generics
 T = TypeVar("T")
+
+# Setup logging
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
+
+def configure_logger(
+    loggerObject: logging.Logger,
+    *,
+    level: t.Union[int, str] = logging.WARNING,
+    force: bool = True,
+) -> logging.Logger:
+    """Performs standard configuration on the provided logger.
+
+    Can be used to configure this modules logger or any user modules logger.
+
+    Adds a default stream handler with a format string containing level, name, and message.
+
+    Returns the logger passed.
+    """
+    # Add formatted handler
+    FORMAT_STRING = "%(levelname)s - %(name)s - %(message)s"
+    # Only add the handler if forced or none exist
+    if force or len(loggerObject.handlers) == 0:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(FORMAT_STRING))
+        loggerObject.addHandler(handler)
+    # Set logging level
+    loggerObject.setLevel(level)
+    # Chain object
+    return loggerObject
+
 
 # Determine the root path for downloading and producing files
 # Default on the file location, but if not existant for some reason
@@ -81,13 +114,13 @@ def absolute_path(path: str) -> str:
 def download_file(url: str, fileName: str, *, headers: Mapping[str, str]) -> None:
     """Downloads a file from <url> to the location specified by <fileName>"""
     # Open request to url
-    logging.info("Starting download of <%s> to <%s>", url, fileName)
+    logger.info("Starting download of <%s> to <%s>", url, fileName)
     with requests.get(url, stream=True, headers=headers) as r:
         # Open file in write-byte mode
         with open(fileName, "wb") as f:
             # Copy data
             shutil.copyfileobj(r.raw, f)
-    logging.info("Finished download of <%s> to <%s>", url, fileName)
+    logger.info("Finished download of <%s> to <%s>", url, fileName)
 
 
 def current_dump_day() -> datetime.date:
@@ -98,7 +131,7 @@ def current_dump_day() -> datetime.date:
     Returns a naive date
     """
     utc = datetime.datetime.utcnow()
-    logging.info("Current time is %s UTC", utc)
+    logger.info("Current time is %s UTC", utc)
     return (
         utc.date() - datetime.timedelta(days=1)
         if utc.time().hour >= 7
@@ -112,7 +145,7 @@ def last_dump_timestamp() -> int:
     Specifically, corresponds to the last 2200 PST or 0600 UTC
     """
     utc = datetime.datetime.utcnow()
-    logging.info("Current time is %s UTC", utc)
+    logger.info("Current time is %s UTC", utc)
     if utc.hour >= 6:
         utc = datetime.datetime.combine(utc.date(), datetime.time(hour=6))
     else:
@@ -171,7 +204,7 @@ class RateLimiter:
         now = time.time()
         if now < self.lockTime:
             diff = self.lockTime - now
-            logging.debug("Waiting %ss to avoid ratelimit", diff)
+            logger.debug("Waiting %ss to avoid ratelimit", diff)
             time.sleep(diff)
 
 
@@ -285,7 +318,7 @@ class ResourceManager:
         from the source of the resource.
         """
         if not os.path.isfile(self.resolve(resource, target)):
-            logging.info("File does not exist, downloading.")
+            logger.info("File does not exist, downloading.")
             self.download(resource, target)
 
     def update(self, resource: Resource, target: str = None) -> None:
@@ -297,14 +330,14 @@ class ResourceManager:
         """
 
         # Notify of downloading
-        logging.info("Checking resource timestamp marker.")
+        logger.info("Checking resource timestamp marker.")
         try:
             # Try loading marker
             with open(self.markerFile, "r") as f:
                 marker = json.load(f)
         except FileNotFoundError:
             # Download if marker does not exist
-            logging.info("Marker file does not exist, downloading file.")
+            logger.info("Marker file does not exist, downloading file.")
             self.download(resource, target)
             # Create marker
             marker = {resource.name: datetime.datetime.utcnow().isoformat()}
@@ -313,7 +346,7 @@ class ResourceManager:
             if resource.name not in marker or resource.outdated(
                 datetime.datetime.fromisoformat(marker[resource.name])
             ):
-                logging.info("Marker shows outdated timestamp, redownloading file.")
+                logger.info("Marker shows outdated timestamp, redownloading file.")
                 # Write to the file
                 self.download(resource, target)
                 # Update timestamp
@@ -388,13 +421,13 @@ class DumpManager:
         looking in the specified location (calculated with ResourceManager.resolve).
         """
 
-        logging.info("Parsing XML tree")
+        logger.info("Parsing XML tree")
         # Attempt to load the data
         with gzip.open(self.resourceManager.resolve(resource, location)) as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
-        logging.info("XML document retrieval and parsing complete")
+        logger.info("XML document retrieval and parsing complete")
         return xml
 
     def retrieve_iterator(
@@ -409,7 +442,7 @@ class DumpManager:
         If `tags` is None, every node is returned (including a empty root node).
         """
 
-        logging.info("Iteratively parsing XML")
+        logger.info("Iteratively parsing XML")
         # Attempt to load the data
         with gzip.open(self.resourceManager.resolve(resource, location)) as dump:
 
@@ -548,7 +581,7 @@ class NSRequester:
         # Wait on ratelimiter
         self.rateLimiter.wait()
         # Logging
-        logging.info("Requesting %s", target)
+        logger.info("Requesting %s", target)
         # Make request
         response = requests.get(target, headers=headers)
         # Update ratelimiter
@@ -723,7 +756,7 @@ class Auth:
         """Updates the auth with a response,
         notably provides it with the X-Pin header
         """
-        # logging.info("Recieved headers %s", response.headers)
+        # logger.info("Recieved headers %s", response.headers)
         # If a pin or autologin is returned, save it.
         # Autologin is provided when authenticating with password
         # Pin should be provided when authenticating with password/autologin
@@ -757,7 +790,7 @@ class Nation(API):
         """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
         """
         # Inject auth updating, allows using pin
-        logging.info("Making Nation request")
+        # logger.info("Making Nation request")
         response = super().shards_response(*shards, headers=headers, **parameters)
         # response.ok is true iff status_code < 400
         if not response.ok:

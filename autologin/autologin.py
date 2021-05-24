@@ -8,12 +8,12 @@ import config
 import nsapi
 
 # Set logging level
-level = logging.WARNING
-logging.basicConfig(level=level)
+level = logging.INFO
 # Name logger
-logger = logging.getLogger()
-# Change nsapi logging level
-nsapi.logger.setLevel(level=level)
+logger = logging.getLogger(__name__)
+# Configure loggers
+nsapi.configure_logger(logger, level=level)
+nsapi.configure_logger(nsapi.logger, level=level)
 
 
 @dataclasses.dataclass()
@@ -83,7 +83,7 @@ def main() -> None:
 
     # Collect nationlist
     nations = {}
-    with open(nsapi.absolute_path(inputPath), "r") as file:
+    with open(inputPath, "r") as file:
         for line in file:
             # Ignore empty lines
             if not line == "\n":
@@ -105,7 +105,7 @@ def main() -> None:
 
     # Only generate output if desired
     if outputPath != "":
-        with open(nsapi.absolute_path(outputPath), "w") as file:
+        with open(outputPath, "w") as file:
             for nation, result in output.items():
                 print(f"{nation},{result.autologin if result else None}", file=file)
 
