@@ -1,17 +1,19 @@
 """Retrieves the WA residents of a region"""
 
+import argparse
 import logging
 from typing import Collection, Iterable
 
+import config
 import nsapi
 
 # Set logging level
 level = logging.WARNING
-logging.basicConfig(level=level)
 # Name logger
 logger = logging.getLogger()
-# Change nsapi logging level
-nsapi.logger.setLevel(level=level)
+# Configure loggers
+nsapi.configure_logger(logger, level=level)
+nsapi.configure_logger(nsapi.logger, level=level)
 
 
 def residents(requester: nsapi.NSRequester, region: str) -> Collection[str]:
@@ -37,12 +39,69 @@ def listLinks(nations: Iterable[str]) -> str:
     )
 
 
+def low_endorsements(
+    requester: nsapi.NSRequester, region: str, count: int = 20
+) -> Collection[str]:
+    """
+    Finds nations with low endorsements.
+
+    Searches the nation dump for WA nations in the specified region
+    with less endorsements than the given count.
+    """
+
+    filtered = []
+
+    # Squash casing on region
+    lower_region = region.lower()
+
+    # Search for matching nations
+    for nation in requester.dumpManager().nations():
+        if (
+            # Compare regions, case insensitive
+            nation.region.lower() == lower_region
+            # Check that in WA
+            and nation.WAStatus.startswith("WA")
+            # Check that endorsements are under the specified level
+            and len(nation.endorsements) <= count
+        ):
+            # Save to return at end of search
+            filtered.append(nation.name)
+
+    return filtered
+
+
 def main() -> None:
     """Main function, mainly for testing purposes."""
 
-    requester = nsapi.NSRequester("HN67 API Reader")
+    parser = argparse.ArgumentParser(
+        description="Collects various information on WA residents of a region."
+    )
 
-    print(listLinks(residents(requester, "shinka")))
+    parser.add_argument("region", help="Region to search.")
+
+    parser.add_argument(
+        "-c",
+        "--count",
+        help="Only collect residents with less endorsements than this.",
+        type=int,
+        default=None,
+    )
+
+    # Parse args
+    args = parser.parse_args()
+
+    # Setup requester
+    requester = nsapi.NSRequester(config.userAgent)
+
+    # Use api if getting all residents
+    if not args.count:
+        nations = residents(requester, args.region)
+    # Use dump if filtering
+    else:
+        nations = low_endorsements(requester, args.region, args.count)
+
+    # print(listLinks(nations))
+    print(nations)
 
 
 # Call main if this script is the entrypoint
