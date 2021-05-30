@@ -2,6 +2,8 @@
 
 import argparse
 import logging
+import sys
+import typing as t
 from typing import Collection, Iterable
 
 import config
@@ -37,6 +39,14 @@ def listLinks(nations: Iterable[str]) -> str:
         )
         + "\n"
     )
+
+
+def listNationCodes(nations: Iterable[str]) -> str:
+    """Returns a string containing the given nations formmatted into nscode links,
+    conjoined into a single line.
+    """
+
+    return "".join(f"[nation]{nation}[/nation]" for nation in nations)
 
 
 def low_endorsements(
@@ -87,21 +97,44 @@ def main() -> None:
         default=None,
     )
 
+    parser.add_argument(
+        "-o", "--output", help="File name to output to instead of stdout.", default=None
+    )
+
     # Parse args
-    args = parser.parse_args()
+    # Check sys.argv first; if no args provided run interactive mode
+    if len(sys.argv) <= 1:
+        # Interactive mode
+        region = input("Region to search: ")
+        count_raw = input("Endorsement boundary (type nothing to get all WA): ")
+        count: t.Optional[int]
+        if count_raw:
+            count = int(count_raw)
+        else:
+            count = None
+        output = input("File name to output to: ")
+    else:
+        args = parser.parse_args()
+        region = args.region
+        count = args.count
 
     # Setup requester
     requester = nsapi.NSRequester(config.userAgent)
 
     # Use api if getting all residents
-    if not args.count:
-        nations = residents(requester, args.region)
+    if not count:
+        nations = residents(requester, region)
     # Use dump if filtering
     else:
-        nations = low_endorsements(requester, args.region, args.count)
+        nations = low_endorsements(requester, region, count)
 
     # print(listLinks(nations))
-    print(nations)
+    # print(nations)
+    if output:
+        with open(output, "w") as out_file:
+            print(listNationCodes(nations), file=out_file)
+    else:
+        print(listNationCodes(nations))
 
 
 # Call main if this script is the entrypoint
