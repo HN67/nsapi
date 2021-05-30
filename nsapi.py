@@ -220,7 +220,7 @@ def as_xml(data: str) -> etree.Element:
     except etree.ParseError as error:
         raise ValueError(
             f"Tried to parse malformed data as XML. Error: {error}, Got data: '{data}'"
-        )
+        ) from error
 
 
 def clean_format(string: str) -> str:
