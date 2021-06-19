@@ -107,7 +107,10 @@ except NameError:
 
 
 def absolute_path(path: str) -> str:
-    """Returns the absolute path of a given path based on this file"""
+    """Return the absolute path of a given path based on this file.
+    
+    Use of this function is not recommended, prefer basing of the cwd.
+    """
     return os.path.join(os.path.dirname(basePath), path)
 
 

@@ -7,7 +7,7 @@ import requests
 
 import config
 import nsapi
-import rarityfinder
+from cards import rarityfinder
 
 # Set logging level
 level = logging.INFO
