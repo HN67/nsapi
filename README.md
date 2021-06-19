@@ -27,9 +27,9 @@ When installing Python, make sure to install pip as well, and to add Python to P
 
 The following list is incomplete. Information on scripts can also be found in the docstring (first line) of the file.
 
-Running most of these scripts should be possible with `python <file_name>`, but some also support a command line interface.
+Running most of these scripts should be possible with `python -m <script_name>`, but some also support a command line interface.
 
-`autologin.py` takes a list of nations from a text file and uses the API to register a login, preventing ceasing to exist from inactivity. The file most pair each nation with a password, or autologin keys. The script will optionally output a file with autologin keys after running, which can then be used instead of the original file, allowing you to avoid storing passwords in plaintext long-term. Nation names may contain any character other than a comma (which NationStates disallows regardless), and passwords and keys can contain any character. The file should have one nation, password pair per line, and may have optional blank lines for readability. All nations in the file must have either passwords or autologin keys, not a mixture.
+`autologin` takes a list of nations from a text file and uses the API to register a login, preventing ceasing to exist from inactivity. The file most pair each nation with a password, or autologin keys. The script will optionally output a file with autologin keys after running, which can then be used instead of the original file, allowing you to avoid storing passwords in plaintext long-term. Nation names may contain any character other than a comma (which NationStates disallows regardless), and passwords and keys can contain any character. The file should have one nation, password pair per line, and may have optional blank lines for readability. All nations in the file must have either passwords or autologin keys, not a mixture.
 
 Example: `passwords.txt`
 
@@ -38,8 +38,8 @@ Testlandia,myPassword123
 TestlandiaPuppet,myOtherPassword456
 ```
 
-`endorsements.py` checks the nation chosen by the `endorser` variable and sees which WA members of their region they have not endorsed.
+`wa.endorsements` checks the nation chosen by the `endorser` variable and sees which WA members of their region they have not endorsed.
 
-`endorsed.py` checks the nation chosen by the `target` variable to see which WA members of their region have not endorsed them.
+`wa.endorsed` checks the nation chosen by the `target` variable to see which WA members of their region have not endorsed them.
 
-`cardsort.py` is a relatively finished script, which will prompt for nations and card rarity, and then parse the decks of the specificed nations, producing a csv file. Designed to be run from command line.
+`cards.cardsort` is a relatively finished script, which will prompt for nations and card rarity, and then parse the decks of the specificed nations, producing a csv file. Designed to be run from command line.
