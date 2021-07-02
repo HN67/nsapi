@@ -16,10 +16,13 @@ userAgent = "HN67"
 
 Some scripts interact with NationStates data dumps, which may involve downloading files up to 50MB in size.
 
-## Requirements
+## Dependencies
 
-- Python 3.6+ (`https://www.python.org/downloads/`)
-- requests (`pip install requests`)
+- [Python 3.6+](https://www.python.org/downloads/)
+- requests
+
+The recommended method to gather dependencies other than Python is to use [poetry](https://python-poetry.org/)
+with the included `pyproject.toml` file (typically by running `poetry install` in the project directory).
 
 When installing Python, make sure to install pip as well, and to add Python to PATH/Environment Variables.
 
@@ -28,6 +31,8 @@ When installing Python, make sure to install pip as well, and to add Python to P
 The following list is incomplete. Information on scripts can also be found in the docstring (first line) of the file.
 
 Running most of these scripts should be possible with `python -m <script_name>`, but some also support a command line interface.
+
+If `poetry` was used to install dependencies, use `poetry run python -m <script_name>` instead.
 
 `autologin` takes a list of nations from a text file and uses the API to register a login, preventing ceasing to exist from inactivity. The file most pair each nation with a password, or autologin keys. The script will optionally output a file with autologin keys after running, which can then be used instead of the original file, allowing you to avoid storing passwords in plaintext long-term. Nation names may contain any character other than a comma (which NationStates disallows regardless), and passwords and keys can contain any character. The file should have one nation, password pair per line, and may have optional blank lines for readability. All nations in the file must have either passwords or autologin keys, not a mixture.
 

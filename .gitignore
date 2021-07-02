@@ -21,3 +21,6 @@ __pycache__/
 
 # Ignore mypy cache
 .mypy_cache/
+
+# Lock file
+poetry.lock
