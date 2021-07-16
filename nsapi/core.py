@@ -28,7 +28,6 @@ import logging
 import typing as t
 from typing import (
     Collection,
-    Dict,
     Iterable,
     Mapping,
     Optional,
@@ -183,7 +182,7 @@ class NSRequester:
         return DumpManager(self.headers["User-Agent"])
 
     def request(
-        self, api: str, headers: Optional[Dict[str, str]] = None
+        self, api: str, headers: Optional[Mapping[str, str]] = None
     ) -> requests.Response:
         """Returns the text retrieved from the specified NS api.
         Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>
@@ -210,7 +209,7 @@ class NSRequester:
         return response
 
     def parameter_request(
-        self, headers: Optional[Dict[str, str]] = None, **parameters: str
+        self, headers: Optional[Mapping[str, str]] = None, **parameters: str
     ) -> requests.Response:
         """Returns the response retrieved from the specified NS api.
         The api is constructed by passing the given key-value pairs as parameters
@@ -232,7 +231,7 @@ class NSRequester:
     def shard_request(
         self,
         shards: Optional[Iterable[str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[Mapping[str, str]] = None,
         **parameters: str,
     ) -> requests.Response:
         """Returns the response from the specified NS api
@@ -281,16 +280,19 @@ class API:
         self.api = api
         self.name = name
 
-    def _key(self) -> Dict[str, str]:
+    def _key(self) -> Mapping[str, str]:
         """Determines the first key of the request, encodes the API and name"""
         return {self.api: self.name}
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> Mapping[str, str]:
         """Returns various headers to add to a request, such as authentication"""
         return {}
 
     def shards_response(
-        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+        self,
+        *shards: str,
+        headers: Optional[Mapping[str, str]] = None,
+        **parameters: str,
     ) -> requests.Response:
         """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
         """
@@ -304,9 +306,12 @@ class API:
         )
 
     def shards_xml(
-        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
-    ) -> Dict[str, etree.Element]:
-        """Returns a Dict mapping from the shard name to the XML element returned
+        self,
+        *shards: str,
+        headers: Optional[Mapping[str, str]] = None,
+        **parameters: str,
+    ) -> Mapping[str, etree.Element]:
+        """Returns a mapping from the shard name to the XML element returned
         Connects to the `<api>=<name>&q=<shards>` page of the api
         """
         return {
@@ -317,9 +322,12 @@ class API:
         }
 
     def shards(
-        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
-    ) -> Dict[str, str]:
-        """Naively returns a Dict mapping from the shard name to the text of that element
+        self,
+        *shards: str,
+        headers: Optional[Mapping[str, str]] = None,
+        **parameters: str,
+    ) -> Mapping[str, str]:
+        """Naively returns a mapping from the shard name to the text of that element
         Uses the xml_shards method.
         Not all shards are one level deep, and as such have no text,
         but this method will only return the empty string, with no warning.
@@ -364,7 +372,7 @@ class Auth:
 
         self.password = password
 
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> Mapping[str, str]:
         """Returns authentication headers"""
         return {
             "X-Pin": self.pin,
@@ -398,14 +406,17 @@ class Nation(API):
         # Save the nationname, needed to cludged card method
         self.nationname = name
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> Mapping[str, str]:
         """Important headers to add to every request
         In particular, auth headers
         """
         return self.auth.headers() if self.auth else {}
 
     def shards_response(
-        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+        self,
+        *shards: str,
+        headers: Optional[Mapping[str, str]] = None,
+        **parameters: str,
     ) -> requests.Response:
         """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
         """
@@ -621,11 +632,11 @@ class World(API):
         # Maximum number of happenings returned by happenings shard in one response
         self.happeningsResponseLimit = 100
 
-    def _key(self) -> Dict[str, str]:
+    def _key(self) -> Mapping[str, str]:
         return {}
 
     def _happenings_root(
-        self, headers: Optional[Dict[str, str]] = None, **parameters: str
+        self, headers: Optional[Mapping[str, str]] = None, **parameters: str
     ) -> etree.Element:
         """Returns the NS API happenings query root element"""
         return self.shards_xml(
@@ -635,7 +646,7 @@ class World(API):
     def happenings(
         self,
         safe: bool = True,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[Mapping[str, str]] = None,
         **parameters: str,
     ) -> Iterable[Happening]:
         """Queries the NS happenings api shard, appending any given parameters.
@@ -701,17 +712,20 @@ class Card(API):
         self.tradeResponseLimit = 50
 
     # Injected into super .shard_response as parameters
-    def _key(self) -> Dict[str, str]:
+    def _key(self) -> Mapping[str, str]:
         return {"cardid": str(self.id), "season": self.season}
 
     def shards_response(
-        self, *shards: str, headers: Optional[Dict[str, str]] = None, **parameters: str
+        self,
+        *shards: str,
+        headers: Optional[Mapping[str, str]] = None,
+        **parameters: str,
     ) -> requests.Response:
         # Injects an extra shard, i.e. `card`
         return super().shards_response("card", *shards, headers=headers, **parameters)
 
     def _trades_root(
-        self, headers: Optional[Dict[str, str]] = None, **parameters: str
+        self, headers: Optional[Mapping[str, str]] = None, **parameters: str
     ) -> etree.Element:
         """Returns the NS API trades query root element"""
         return self.shards_xml("trades", headers=headers, **parameters)["trades"]
@@ -719,7 +733,7 @@ class Card(API):
     def trades(
         self,
         safe: bool = True,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[Mapping[str, str]] = None,
         **parameters: str,
     ) -> Iterable[Trade]:
         """Queries the NS trades api shard of this card, appending any given parameters.
