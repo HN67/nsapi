@@ -12,8 +12,7 @@ level = logging.INFO
 # Name logger
 logger = logging.getLogger(__name__)
 # Configure loggers
-nsapi.configure_logger(logger, level=level)
-nsapi.configure_logger(nsapi.logger, level=level)
+nsapi.configure_logger(logging.getLogger(), level=level)
 
 
 @dataclasses.dataclass()
