@@ -115,14 +115,14 @@ def update_roster(
     requester = nsapi.NSRequester(config.userAgent)
 
     # Collect data
-    with open(nsapi.absolute_path(dataPath), "r") as file:
+    with open(dataPath, "r") as file:
         nations: t.Mapping[str, t.Collection[str]] = json.load(file)
 
     # collect current/old roster
     current: t.Mapping[str, str]
 
     if oldRosterPath:
-        with open(nsapi.absolute_path(oldRosterPath), "r") as file:
+        with open(oldRosterPath, "r") as file:
             current = read_old_roster(file, parse_old)
     else:
         # read from stdin
@@ -136,7 +136,7 @@ def update_roster(
 
     # Summarize results
     if outputPath:
-        with open(nsapi.absolute_path(outputPath), "w") as file:
+        with open(outputPath, "w") as file:
             print_output(file, changes)
     else:
         print_output(sys.stdout, changes)
