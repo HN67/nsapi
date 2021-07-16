@@ -32,7 +32,6 @@ from typing import (
     Iterable,
     Mapping,
     Optional,
-    Set,
 )
 
 # Utility
@@ -50,12 +49,13 @@ from nsapi.exceptions import APIError, AuthError, ResourceError
 from nsapi.models import (
     NationStandard,
     RegionStandard,
-    CardStandard,
     Census,
     CardIdentifier,
     DeckInfo,
     Issue,
     Trade,
+    Dossier,
+    Happening,
 )
 
 from nsapi.resources import DumpManager
@@ -605,6 +605,12 @@ class Region(API):
         """Returns a collection of the member nations of this region."""
         return self.shard("nations").split(":")
 
+    def standard(self) -> RegionStandard:
+        """Returns a RegionStandard object for this Region"""
+        return RegionStandard.from_xml(
+            as_xml(self.requester.parameter_request(region=self.name).text)
+        )
+
 
 class World(API):
     """Reperesnts a live connection the the API of the World on NS"""
@@ -675,52 +681,6 @@ class WA(API):
 
     def __init__(self, requester: NSRequester, council: str = "1") -> None:
         super().__init__(requester, "wa", council)
-
-
-class Dossier:
-    """Class that represents a NS nation's dossier
-    May contain nation, region, or both, records,
-    depending on the XML element used to construct this.
-    Objects are usually obtained from the Nation.dossier method
-
-    Attributes:
-    self.dossier: A collection of nations
-    self.rdossier: A collection of regions
-    """
-
-    def __init__(self, dossier: etree.Element, rdossier: etree.Element) -> None:
-        """Parses DOSSIER and/or RDOSSIER nodes, as returned by NS api nation shards.
-        (See https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=dossier+rdossier)
-        (Requires auth, see https://www.nationstates.net/pages/api.html#authenticating)
-        Does not save references to the nodes
-        """
-        # [R]DOSSIER nodes are simply nodes with nations/regions as children, with names as text
-        self.dossier: Set[str] = set(node.text if node.text else "" for node in dossier)
-        self.rdossier: Set[str] = set(
-            node.text if node.text else "" for node in rdossier
-        )
-
-
-class Happening:
-    """Class that represents a NS happening.
-    There should be little need to manually instantiate this class,
-    instead instances are returned by the World.happenings method.
-
-    Attributes:
-    self.id (int) - the event ID of the happening
-    self.timestamp (Optional[int]) - the int timestamp the happening occured at
-    self.text (str) - the raw text of the happening
-    """
-
-    def __init__(self, node: etree.Element) -> None:
-        """Parse a happening from an XML format.
-        Expects an EVENT node, as returned by NS api for happenings.
-        (See https://www.nationstates.net/cgi-bin/api.cgi?q=happenings)
-        Does not save a reference to the node.
-        """
-        self.id: int = int(node.attrib["id"])
-        self.timestamp: Optional[int] = int(node[0].text) if node[0].text else None
-        self.text: str = node[1].text if node[1].text else ""
 
 
 class Card(API):
