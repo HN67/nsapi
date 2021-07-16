@@ -1,4 +1,6 @@
-"""NationStates Python API."""
+"""Core mechanisms and wrappers for interacting with the NS API.
+See https://www.nationstates.net/pages/api.html for NS API details.
+"""
 
 from nsapi.core import *
 from nsapi.models import *
