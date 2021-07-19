@@ -485,7 +485,7 @@ class Nation(API):
     def dossier(self) -> Dossier:
         """Returns a Dossier representing the dossier of this nation"""
         nodes = self.shards_xml("dossier", "rdossier")
-        return Dossier(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
+        return Dossier.from_xml(dossier=nodes["dossier"], rdossier=nodes["rdossier"])
 
     def censuses(self, *scales: int) -> Mapping[int, Census]:
         """Returns a mapping of all requested census scales.
@@ -668,7 +668,9 @@ class World(API):
             )
             rootList.append(root)
         # https://docs.python.org/2/library/itertools.html#itertools.chain
-        return (Happening(node) for node in itertools.chain.from_iterable(rootList))
+        return (
+            Happening.from_xml(node) for node in itertools.chain.from_iterable(rootList)
+        )
 
     def regions_by_tag(self, *tags: str) -> Iterable[str]:
         """Returns an iterable of the names of all regions,

@@ -14,6 +14,7 @@ T = t.TypeVar("T")
 
 
 # TODO update these 2 classes to be dataclasses with .from_xml
+@dataclasses.dataclass()
 class Dossier:
     """Class that represents a NS nation's dossier
     May contain nation, region, or both, records,
@@ -25,19 +26,24 @@ class Dossier:
     self.rdossier: A collection of regions
     """
 
-    def __init__(self, dossier: etree.Element, rdossier: etree.Element) -> None:
+    dossier: Set[str]
+    rdossier: Set[str]
+
+    @classmethod
+    def from_xml(cls, dossier: etree.Element, rdossier: etree.Element) -> Dossier:
         """Parses DOSSIER and/or RDOSSIER nodes, as returned by NS api nation shards.
         (See https://www.nationstates.net/cgi-bin/api.cgi?nation=testlandia&q=dossier+rdossier)
         (Requires auth, see https://www.nationstates.net/pages/api.html#authenticating)
         Does not save references to the nodes
         """
         # [R]DOSSIER nodes are simply nodes with nations/regions as children, with names as text
-        self.dossier: Set[str] = set(node.text if node.text else "" for node in dossier)
-        self.rdossier: Set[str] = set(
-            node.text if node.text else "" for node in rdossier
+        return Dossier(
+            dossier=set(node.text if node.text else "" for node in dossier),
+            rdossier=set(node.text if node.text else "" for node in rdossier),
         )
 
 
+@dataclasses.dataclass()
 class Happening:
     """Class that represents a NS happening.
     There should be little need to manually instantiate this class,
@@ -49,15 +55,21 @@ class Happening:
     self.text (str) - the raw text of the happening
     """
 
-    def __init__(self, node: etree.Element) -> None:
+    id: int
+    timestamp: Optional[int]
+    text: str
+
+    def from_xml(self, node: etree.Element) -> Happening:
         """Parse a happening from an XML format.
         Expects an EVENT node, as returned by NS api for happenings.
         (See https://www.nationstates.net/cgi-bin/api.cgi?q=happenings)
         Does not save a reference to the node.
         """
-        self.id: int = int(node.attrib["id"])
-        self.timestamp: Optional[int] = int(node[0].text) if node[0].text else None
-        self.text: str = node[1].text if node[1].text else ""
+        return Happening(
+            id=int(node.attrib["id"]),
+            timestamp=int(node[0].text) if node[0].text else None,
+            text=node[1].text if node[1].text else "",
+        )
 
 
 @dataclasses.dataclass(frozen=True)
