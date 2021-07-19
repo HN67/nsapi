@@ -59,6 +59,14 @@ def configure_logger(
     return loggerObject
 
 
+def enable_logging(level: t.Union[int, str] = logging.INFO) -> logging.Logger:
+    """Configure root logger using `configure_logger`.
+    
+    Returns the root logger.
+    """
+    return configure_logger(logging.getLogger(), level=level)
+
+
 def clean_format(string: str) -> str:
     """Casts the string to lowercase and replaces spaces with underscores"""
     return string.lower().replace(" ", "_")
