@@ -13,7 +13,6 @@ from nsapi.parser import NodeParse, label_children, content, sequence
 T = t.TypeVar("T")
 
 
-# TODO update these 2 classes to be dataclasses with .from_xml
 @dataclasses.dataclass()
 class Dossier:
     """Class that represents a NS nation's dossier
@@ -37,7 +36,7 @@ class Dossier:
         Does not save references to the nodes
         """
         # [R]DOSSIER nodes are simply nodes with nations/regions as children, with names as text
-        return Dossier(
+        return cls(
             dossier=set(node.text if node.text else "" for node in dossier),
             rdossier=set(node.text if node.text else "" for node in rdossier),
         )
@@ -59,13 +58,14 @@ class Happening:
     timestamp: Optional[int]
     text: str
 
-    def from_xml(self, node: etree.Element) -> Happening:
+    @classmethod
+    def from_xml(cls, node: etree.Element) -> Happening:
         """Parse a happening from an XML format.
         Expects an EVENT node, as returned by NS api for happenings.
         (See https://www.nationstates.net/cgi-bin/api.cgi?q=happenings)
         Does not save a reference to the node.
         """
-        return Happening(
+        return cls(
             id=int(node.attrib["id"]),
             timestamp=int(node[0].text) if node[0].text else None,
             text=node[1].text if node[1].text else "",

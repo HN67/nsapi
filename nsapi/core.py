@@ -664,7 +664,9 @@ class World(API):
         # however, this is a bit of magic number and should be fixed
         while not safe and len(root) == self.happeningsResponseLimit:
             root = self._happenings_root(
-                headers=headers, **parameters, beforeid=str(Happening(root[-1]).id)
+                headers=headers,
+                **parameters,
+                beforeid=str(Happening.from_xml(root[-1]).id),
             )
             rootList.append(root)
         # https://docs.python.org/2/library/itertools.html#itertools.chain
