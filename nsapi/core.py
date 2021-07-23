@@ -76,7 +76,7 @@ def main() -> None:
     """Main function; only for testing"""
 
     requester: NSRequester = NSRequester("HN67 API Reader")
-    print(requester.request("a=useragent").text)
+    print(requester.request("?a=useragent").text)
 
 
 # script-only __main__ paradigm, for testing

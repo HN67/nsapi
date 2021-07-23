@@ -11,6 +11,7 @@ import itertools
 import logging
 import time
 from typing import Collection, Iterable, Mapping, Optional
+import typing as t
 
 # Tech libraries
 import xml.etree.ElementTree as etree
@@ -120,27 +121,34 @@ class NSRequester:
         return DumpManager(self.headers["User-Agent"])
 
     def request(
-        self, api: str, headers: Optional[Mapping[str, str]] = None
+        self,
+        api: str,
+        headers: Optional[Mapping[str, str]] = None,
+        parameters: Optional[Mapping[str, str]] = None,
     ) -> requests.Response:
         """Returns the text retrieved from the specified NS api.
-        Queries "https://www.nationstates.net/cgi-bin/api.cgi?"+<api>
+        Queries "https://www.nationstates.net/cgi-bin/api.cgi"+<api>
         Adds the given headers (if any) to the default headers of the this requester
         (such as user agent). Any conflicts will prioritize the parameter headers
         """
         # Prepare target (attaching the given api to NS's API page)
-        target = "https://www.nationstates.net/cgi-bin/api.cgi?" + api
+        endpoint = "https://www.nationstates.net/cgi-bin/api.cgi"
+        target = endpoint + api
         # Create headers
         if headers:
             # Combine dictionaries
             headers = {**self.headers, **headers}
         else:
             headers = self.headers
+        # Construct prepared request so that we can retrieve final url
+        request = requests.Request("GET", target, params=parameters, headers=headers)
+        prepared = request.prepare()
         # Wait on ratelimiter
         self.rateLimiter.wait()
         # Logging
-        logger.info("Requesting %s", target)
+        logger.info("Requesting %s", prepared.url)
         # Make request
-        response = requests.get(target, headers=headers)
+        response = requests.Session().send(prepared)  # type: ignore
         # Update ratelimiter
         self.rateLimiter.update(int(response.headers["X-Ratelimit-Requests-Seen"]))
         # Return parsed text
@@ -152,10 +160,8 @@ class NSRequester:
         """Returns the response retrieved from the specified NS api.
         The api is constructed by passing the given key-value pairs as parameters
         """
-        # Prepare query string
-        query: str = "&".join(f"{key}={value}" for key, value in parameters.items())
         # Subcall default request method to use ratelimit, etc
-        return self.request(query, headers=headers)
+        return self.request("", parameters=parameters, headers=headers)
 
     def get_autologin(self, nation: str, password: str) -> str:
         """Attempts to authenticate with the given nation (using the ping shard)
