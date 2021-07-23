@@ -426,6 +426,10 @@ class Nation(API):
         """Returns the WA status of this Nation"""
         return self.shards("wa")["unstatus"]
 
+    def endorsements(self) -> t.Sequence[str]:
+        """Retrieve the endorsements of this Nation."""
+        return self.shards("endorsements")["endorsements"].split(",")
+
     def dossier(self) -> Dossier:
         """Returns a Dossier representing the dossier of this nation"""
         nodes = self.shards_xml("dossier", "rdossier")

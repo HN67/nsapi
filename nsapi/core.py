@@ -47,7 +47,8 @@ def configure_logger(
     Returns the logger passed.
     """
     # Add formatted handler
-    FORMAT_STRING = "%(levelname)s - %(name)s - %(message)s"
+    # FORMAT_STRING = "%(levelname)s - %(name)s - %(message)s"
+    FORMAT_STRING = "[%(asctime)s] [%(levelname)s] %(name)s - %(message)s"
     # Only add the handler if forced or none exist
     if force or len(loggerObject.handlers) == 0:
         handler = logging.StreamHandler()
@@ -61,7 +62,7 @@ def configure_logger(
 
 def enable_logging(level: t.Union[int, str] = logging.INFO) -> logging.Logger:
     """Configure root logger using `configure_logger`.
-    
+
     Returns the root logger.
     """
     return configure_logger(logging.getLogger(), level=level)
@@ -70,6 +71,17 @@ def enable_logging(level: t.Union[int, str] = logging.INFO) -> logging.Logger:
 def clean_format(string: str) -> str:
     """Casts the string to lowercase and replaces spaces with underscores"""
     return string.lower().replace(" ", "_")
+
+
+def same_nation(first: str, second: str) -> bool:
+    """Determine if two strings reference the same nation.
+    
+    Performs a case insensitive comparison,
+    and considers space (' ') and underscore ('_') the same.
+
+    Implemented by comparing clean_format of both.
+    """
+    return clean_format(first) == clean_format(second)
 
 
 def main() -> None:

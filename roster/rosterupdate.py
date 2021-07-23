@@ -12,13 +12,9 @@ import nsapi
 
 from roster import rosterread
 
-# Set logging level
-level = logging.INFO
-logging.basicConfig(level=level)
 # Name logger
-logger = logging.getLogger()
-# Change nsapi logging level
-nsapi.logger.setLevel(level=level)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 @dataclasses.dataclass()
@@ -144,6 +140,8 @@ def update_roster(
 
 def main() -> None:
     """Main function"""
+
+    nsapi.enable_logging()
 
     parser = argparse.ArgumentParser(description="Update a WA roster.")
     parser.add_argument("roster", help="File containing puppet lists, in JSON form.")
