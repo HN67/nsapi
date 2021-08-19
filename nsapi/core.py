@@ -75,7 +75,7 @@ def clean_format(string: str) -> str:
 
 def same_nation(first: str, second: str) -> bool:
     """Determine if two strings reference the same nation.
-    
+
     Performs a case insensitive comparison,
     and considers space (' ') and underscore ('_') the same.
 

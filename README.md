@@ -2,9 +2,9 @@
 
 Hobby project to develop and utilize a Python API wrapper for the [NationStates API](https://www.nationstates.net/pages/api.html).
 
-The heart of this project is `nsapi.py`, which provides the NSRequester class for making API requests, and several other API objects for retrieving more sophisticated data.
+The heart of this project is the `nsapi` package, which provides the `NSRequester` class for making API requests, and several other API objects for retrieving more sophisticated data.
 
-In order to use any of the scripts, both `nsapi.py` and `config.py` must be included in the same directory, and `config.py` must specify a *descriptive* User Agent, such as your nation name.
+In order to use any of the scripts, both `config.py` and the `nsapi` folder must be included in the same directory, and `config.py` must specify a *descriptive* User Agent, such as your nation name.
 
 Example:
 
@@ -19,7 +19,7 @@ Some scripts interact with NationStates data dumps, which may involve downloadin
 ## Dependencies
 
 - [Python 3.6+](https://www.python.org/downloads/)
-- requests
+- `requests`
 
 The recommended method to gather dependencies other than Python is to use [poetry](https://python-poetry.org/)
 with the included `pyproject.toml` file (typically by running `poetry install` in the project directory).
