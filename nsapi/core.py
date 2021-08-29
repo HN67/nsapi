@@ -25,8 +25,6 @@ See https://www.nationstates.net/pages/api.html for NS API details
 import logging
 import typing as t
 
-from nsapi.api import NSRequester
-
 # Setup logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -82,15 +80,3 @@ def same_nation(first: str, second: str) -> bool:
     Implemented by comparing clean_format of both.
     """
     return clean_format(first) == clean_format(second)
-
-
-def main() -> None:
-    """Main function; only for testing"""
-
-    requester: NSRequester = NSRequester("HN67 API Reader")
-    print(requester.request("?a=useragent").text)
-
-
-# script-only __main__ paradigm, for testing
-if __name__ == "__main__":
-    main()
