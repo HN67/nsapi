@@ -17,6 +17,7 @@ import typing as t
 import xml.etree.ElementTree as etree
 import requests
 
+from nsapi import core
 from nsapi.exceptions import APIError, AuthError, ResourceError
 from nsapi.models import (
     NationStandard,
@@ -222,7 +223,8 @@ class API:
     def __init__(self, requester: NSRequester, api: str, name: str) -> None:
         self.requester = requester
         self.api = api
-        self.name = name
+        # clean the value
+        self.name = core.clean_format(name)
 
     def _key(self) -> Mapping[str, str]:
         """Determines the first key of the request, encodes the API and name"""
