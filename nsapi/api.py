@@ -189,12 +189,6 @@ class NSRequester:
                 headers=headers, **parameters, q=joined_parameter(*shards)
             )
         return self.parameter_request(headers=headers, **parameters)
-        # target = api + "&q="
-        # # Add shards if they exist
-        # if shards:
-        #     target += "+".join(shards)
-        # # Return request
-        # return self.request(target)
 
     def nation(self, nation: str, auth: Optional[Auth] = None) -> Nation:
         """Returns a Nation object using this requester"""

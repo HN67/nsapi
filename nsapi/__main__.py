@@ -1,6 +1,12 @@
 """Testing utilities."""
 
+import logging
+
 from nsapi import api
+from nsapi import core
+
+
+core.configure_logger(logging.getLogger(), level=logging.INFO)
 
 
 def main() -> None:
