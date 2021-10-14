@@ -1,31 +1,22 @@
 """Determines who has not been endorsed on NationStates"""
 
-# Import logging
-import logging
-
-# Import typing constructs
-from typing import Iterable, Tuple
-
-# For timing
+# Import standard modules
+import argparse
 import datetime
+import itertools
+import logging
+from typing import Iterable, Tuple
 
 # Import nsapi
 import nsapi
 import config
 
-
 # Set logging level
 level = logging.INFO
-logging.basicConfig(level=level)
 # Name logger
-logger = logging.getLogger()
-# Change nsapi logging level
-nsapi.logger.setLevel(level=level)
-
-
-def clean_format(string: str) -> str:
-    """Casts the string to lowercase and replaces spaces with underscores"""
-    return string.lower().replace(" ", "_")
+logger = logging.getLogger(__name__)
+# Configure loggers
+nsapi.configure_logger(logging.getLogger(), level=level)
 
 
 def unendorsed_nations(
@@ -44,22 +35,22 @@ def unendorsed_nations(
 
     # Pull all nations in the region that are WA members
     # Use generator because we dont need to generate a list that is never used
-    logging.info("Collecting %s WA Members", region)
-    waMembers = [
+    logger.info("Collecting %s WA Members", region)
+    waMembers = (
         nation
         for nation in nationDump
         if nation.region == region and nation.WAStatus.startswith("WA")
-    ]
+    )
 
     # Pull nations who are not endorsed
-    logging.info("Collecting WA members who have not been endorsed")
-    nonendorsed = [
+    logger.info("Collecting WA members who have not been endorsed")
+    nonendorsed = (
         # Save name string, converting to lowercase, underscore format
-        clean_format(nation.name)
+        nsapi.clean_format(nation.name)
         for nation in waMembers
         # Check if unendorsed by checking endorsements
         if endorser not in nation.endorsements
-    ]
+    )
 
     return (region, nonendorsed)
 
@@ -117,7 +108,7 @@ def unendorsed_nations_v2(
     """
 
     # Retrieve endorser region and endorsement list
-    logging.info("Collecting WA Members")
+    logger.info("Collecting WA Members")
     info = requester.nation(endorser).shards("region", "endorsements")
     region = info["region"]
     endorsements = set(info["endorsements"].split(","))
@@ -131,7 +122,7 @@ def unendorsed_nations_v2(
     nations = citizens - endorsements
 
     # Check each nation's endorsments
-    logging.info("Checking WA members for endorsement")
+    logger.info("Checking WA members for endorsement")
     nonendorsed = [
         nation
         for nation in nations
@@ -144,33 +135,50 @@ def unendorsed_nations_v2(
 def main() -> None:
     """Main function for running this module"""
 
-    # Setup API
-    API = nsapi.NSRequester(config.userAgent)
-    # Set endorser nation to check for
-    nation = "kuriko"
-
-    logging.info("Collecting data")
-    logging.info("Current time is %s UTC", datetime.datetime.utcnow())
-    region, unendorsed = unendorsed_nations(API, nation)
-
-    logging.info("Formatting results")
-    # Create output display strings
-    header = f"{nation} has not endorsed the following WA Members in {region}:"
-    nationURLs = "\n".join(
-        # Increment step so that the list is 1-indexed
-        f"{step+1}. https://www.nationstates.net/nation={name}"
-        for step, name in enumerate(unendorsed)
+    # Parse nation from command line
+    parser = argparse.ArgumentParser(description="Determine who has not been endorsed.")
+    parser.add_argument(
+        "nation", help="Check who this nation has not endorsed.", default=None
+    )
+    parser.add_argument(
+        "--format",
+        help="Format output.",
+        action="store_true",
     )
 
-    # Output unendorsed nations
-    logging.info("Writing results")
-    with open(nsapi.absolute_path("endorsements.txt"), "w") as f:
-        # Header
-        print(header, file=f)
-        # Formatted nation urls
-        print(nationURLs, file=f)
+    args = parser.parse_args()
+    nation: str = args.nation if args.nation else input("Nation: ")
 
-    logging.info("Current time is %s UTC", datetime.datetime.utcnow())
+    # Setup API
+    API = nsapi.NSRequester(config.userAgent)
+
+    logger.info("Collecting data")
+    logger.info("Current time is %s UTC", datetime.datetime.utcnow())
+    region, unendorsed = unendorsed_nations(API, nation)
+
+    # Output unendorsed nations
+    lines: Iterable[str]
+    if args.format:
+        logger.info("Formatting results")
+        # Header
+        header = f"{nation} has not endorsed the following WA Members in {region}:"
+        # Formatted nation urls
+        # Create output display strings
+        # Increment step so that the list is 1-indexed
+        nation_lines = (
+            f"{step+1}. https://www.nationstates.net/nation={name}"
+            for step, name in enumerate(unendorsed)
+        )
+        lines = itertools.chain([header], nation_lines)
+    else:
+        lines = unendorsed
+
+    logger.info("Writing results")
+    for line in lines:
+        # Print to stdout
+        print(line)
+
+    logger.info("Current time is %s UTC", datetime.datetime.utcnow())
 
 
 # Call main function when run as script
