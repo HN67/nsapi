@@ -234,15 +234,17 @@ class API:
         headers: Optional[Mapping[str, str]] = None,
         **parameters: str,
     ) -> requests.Response:
-        """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
-        """
+        """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api"""
         # Add extra headers if given
         if headers:
             headers = {**self._headers(), **headers}
         else:
             headers = self._headers()
         return self.requester.shard_request(
-            shards, headers=headers, **self._key(), **parameters,
+            shards,
+            headers=headers,
+            **self._key(),
+            **parameters,
         )
 
     def shards_xml(
@@ -257,7 +259,11 @@ class API:
         return {
             node.tag.lower(): node
             for node in as_xml(
-                self.shards_response(*shards, headers=headers, **parameters,).text
+                self.shards_response(
+                    *shards,
+                    headers=headers,
+                    **parameters,
+                ).text
             )
         }
 
@@ -358,8 +364,7 @@ class Nation(API):
         headers: Optional[Mapping[str, str]] = None,
         **parameters: str,
     ) -> requests.Response:
-        """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api
-        """
+        """Returns the Response returned from the `<api>=<name>&q=<shards>` page of the api"""
         # Inject auth updating, allows using pin
         # logger.info("Making Nation request")
         response = super().shards_response(*shards, headers=headers, **parameters)
