@@ -1,8 +1,10 @@
 """Autologins a list of nations, with the option of also generating autologin keys."""
 
+import argparse
 import dataclasses
 import logging
-from typing import Dict, Mapping, Optional
+import sys
+import typing as t
 
 import config
 import nsapi
@@ -25,14 +27,14 @@ class Result:
 
 
 def autologin(
-    requester: nsapi.NSRequester, nations: Mapping[str, str], isAutologin: bool
-) -> Mapping[str, Optional[Result]]:
+    requester: nsapi.NSRequester, nations: t.Mapping[str, str], isAutologin: bool
+) -> t.Mapping[str, t.Optional[Result]]:
     """Autologins a list of nations, from the nations dict of {nation: password/autologin}.
     If isAutologin is true, the passwords are interpreted as autologins.
     Returns a dict mapping from nations to autologins.
     If the autologin value of the returned mapping is None, that means the login failed.
     """
-    output: Dict[str, Optional[Result]] = {}
+    output: t.Dict[str, t.Optional[Result]] = {}
     for nation, password in nations.items():
         # Check how to interpret password
         if isAutologin:
@@ -53,44 +55,46 @@ def autologin(
     return output
 
 
+def parse_line(line: str, delimiter: str = ",") -> t.Tuple[str, t.Optional[str]]:
+    """Attempt to parse a two value line.
+
+    Splits on the given delimiter,
+    and returns None for the second token
+    if the delimiter does not exist.
+    """
+    tokens = line.strip().split(delimiter, maxsplit=1)
+    return (tokens[0], tokens[1] if len(tokens) > 1 else None)
+
+
 def main() -> None:
-    """Main function"""
+    """Autlogin a list of nations.
 
-    print(
-        "Specify a file to load the nation list from. (Based on this script's directory)"
-    )
-    print("Nation name and password should be seperated with a single comma, no space.")
-    inputPath = input("File: ")
+    Each line should contain a <nation>,<password> pair.
 
-    print(
-        "\nShould the passwords be interpreted as autologins keys (encrypted versions)? (y/n)"
-    )
-    autologinInput = input("Interpret as autologins? ").lower()
-    if autologinInput in ("yes", "y"):
-        isAutologin = True
-        print("Okay, will interpret as autologin keys.")
-    else:
-        isAutologin = False
-        print("Okay, will interpret as regular passwords.")
+    Blank lines and lines without a comma are ignored.
+    """
 
-    print(
-        "\nEnter a file to generate autologin keys in, or enter nothing to not generate a file."
+    parser = argparse.ArgumentParser(description="Autologin a list of nations.")
+    parser.add_argument(
+        "--plain",
+        action="store_true",
+        dest="plain",
+        help="Treat passwords as plaintext instead of autologin keys.",
     )
-    outputPath = input("Autologin Output File: ")
+    parser.add_argument(
+        "--output", default=None, help="Output destination of autologin keys."
+    )
+
+    args = parser.parse_args()
 
     requester = nsapi.NSRequester(config.userAgent)
 
     # Collect nationlist
-    nations = {}
-    with open(inputPath, "r") as file:
-        for line in file:
-            # Ignore empty lines
-            if not line == "\n":
-                # Split exactly once to allow passwords that contain commas
-                nation, password = line.strip().split(",", maxsplit=1)
-                nations[nation] = password
+    nations = {
+        name: key for name, key in (parse_line(line) for line in sys.stdin) if key
+    }
 
-    output = autologin(requester, nations, isAutologin)
+    output = autologin(requester, nations, not args.plain)
 
     # Summarize results
     for nation, result in output.items():
@@ -103,8 +107,8 @@ def main() -> None:
             print(f"Failed to log in {nation}. Likely an incorrect password.")
 
     # Only generate output if desired
-    if outputPath != "":
-        with open(outputPath, "w") as file:
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as file:
             for nation, result in output.items():
                 print(f"{nation},{result.autologin if result else None}", file=file)
 
