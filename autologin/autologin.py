@@ -38,13 +38,16 @@ def autologin(
     for nation, password in nations.items():
         # Check how to interpret password
         if isAutologin:
-            nationAPI = requester.nation(nation, nsapi.Auth(autologin=password))
+            auth = nsapi.Auth(autologin=password)
         else:
-            nationAPI = requester.nation(nation, nsapi.Auth(password=password))
+            auth = nsapi.Auth(password=password)
+        # Create API object
+        nationAPI = requester.nation(nation, auth)
         # Try making the shard request
         try:
             shards = nationAPI.shards("region", "ping", "wa")
         except nsapi.APIError:
+            # None indicates any failure
             output[nation] = None
         else:
             output[nation] = Result(
@@ -99,12 +102,12 @@ def main() -> None:
     # Summarize results
     for nation, result in output.items():
         if result:
-            string = f"Successfully logged {nation} in. (Region: {result.region})"
+            string = f"Success: {nation} ({result.region})"
             if result.wa:
                 string += " (WA)"
             print(string)
         else:
-            print(f"Failed to log in {nation}. Likely an incorrect password.")
+            print(f"Failed: {nation}")
 
     # Only generate output if desired
     if args.output:
