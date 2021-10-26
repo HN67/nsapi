@@ -26,7 +26,7 @@ class Result:
     wa: bool
 
 
-def autologin(
+def autologin_many(
     requester: nsapi.NSRequester, nations: t.Mapping[str, str], isAutologin: bool
 ) -> t.Mapping[str, t.Optional[Result]]:
     """Autologins a list of nations, from the nations dict of {nation: password/autologin}.
@@ -58,6 +58,37 @@ def autologin(
     return output
 
 
+def login(
+    requester: nsapi.NSRequester,
+    nation: str,
+    autologin: t.Optional[str],
+    password: t.Optional[str],
+) -> t.Optional[Result]:
+    """Attempts to log in a nation via NS API.
+
+    Returns None on failure.
+
+    At least one of password or autologin must be provided;
+    autologin is used if both are provided.
+    """
+    # Create API object
+    nationAPI = requester.nation(
+        nation, auth=nsapi.Auth(autologin=autologin, password=password)
+    )
+    # Try making the shard request
+    try:
+        shards = nationAPI.shards("region", "ping", "wa")
+    except nsapi.APIError:
+        # None indicates any failure
+        return None
+    else:
+        return Result(
+            autologin=nationAPI.get_autologin(),
+            region=shards["region"],
+            wa=shards["unstatus"].startswith("WA"),
+        )
+
+
 def parse_line(line: str, delimiter: str = ",") -> t.Tuple[str, t.Optional[str]]:
     """Attempt to parse a two value line.
 
@@ -85,34 +116,36 @@ def main() -> None:
         help="Treat passwords as plaintext instead of autologin keys.",
     )
     parser.add_argument(
-        "--output", default=None, help="Output destination of autologin keys."
+        "-o", "--output", default=None, help="Output destination of autologin keys."
     )
 
     args = parser.parse_args()
 
     requester = nsapi.NSRequester(config.userAgent)
 
-    # Collect nationlist
-    nations = {
-        name: key for name, key in (parse_line(line) for line in sys.stdin) if key
-    }
-
-    output = autologin(requester, nations, not args.plain)
-
-    # Summarize results
-    for nation, result in output.items():
-        if result:
-            string = f"Success: {nation} ({result.region})"
-            if result.wa:
-                string += " (WA)"
-            print(string)
-        else:
-            print(f"Failed: {nation}")
+    # Parse input
+    results = []
+    for nation, key in (parse_line(line) for line in sys.stdin):
+        if key:
+            result = login(
+                requester,
+                nation,
+                key if not args.plain else None,
+                key if args.plain else None,
+            )
+            if result:
+                string = f"Success: {nation} ({result.region})"
+                if result.wa:
+                    string += " (WA)"
+                print(string)
+            else:
+                print(f"Failed: {nation}")
+            results.append((nation, result))
 
     # Only generate output if desired
     if args.output:
         with open(args.output, "w", encoding="utf-8") as file:
-            for nation, result in output.items():
+            for nation, result in results:
                 print(f"{nation},{result.autologin if result else None}", file=file)
 
 
