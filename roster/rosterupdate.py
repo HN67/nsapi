@@ -1,8 +1,9 @@
 """Checks and verifies a WA roster"""
 
 # TODO List
-# Add feature to output new roster.json with reordered puppet lists,
-# i.e. located WA at the top
+# Implement nsapi NationName? object
+# that is nsapi.clean_format insensitive
+# and acts like a string
 
 import argparse
 import itertools
@@ -63,15 +64,15 @@ def normalize(mapping: t.Mapping[str, str]) -> t.Mapping[str, str]:
     }
 
 
-def normalize_known(
-    known: t.Mapping[str, t.Iterable[str]]
-) -> t.Mapping[str, t.Iterable[str]]:
+def normalize_known(known: t.Mapping[str, t.Iterable[str]]) -> t.Dict[str, t.List[str]]:
     """Normalizes all keys and items of each value iterable.
+
+    Produces concrete output
 
     Uses nsapi.clean_format.
     """
     return {
-        nsapi.clean_format(key): (nsapi.clean_format(item) for item in value)
+        nsapi.clean_format(key): [nsapi.clean_format(item) for item in value]
         for key, value in known.items()
     }
 
@@ -127,10 +128,45 @@ def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> Non
             print(f"{nation} - Unknown WA", file=file)
 
 
+T = t.TypeVar("T")
+
+
+def bubble(top: T, items: t.Iterable[T]) -> t.Iterable[T]:
+    """Bubble a specific element to the front of an Iterable.
+
+    Wraps T, but yields top first,
+    and will not yield any elements from items
+    that are equal to top.
+    """
+    yield top
+    for item in items:
+        if item != top:
+            yield item
+
+
+def extract_new(
+    deltas: t.Mapping[str, t.Tuple[str, t.Optional[str]]]
+) -> t.Mapping[str, str]:
+    """Extract new WA from a deltas mapping."""
+    return {nation: new for nation, (_, new) in deltas.items() if new is not None}
+
+
+def reorganize(
+    known: t.Mapping[str, t.Iterable[str]],
+    new: t.Mapping[str, str],
+) -> t.Mapping[str, t.Iterable[str]]:
+    """Reorganize known data to have new WAs at the front of puppet lists."""
+    return {
+        nation: (bubble(new[nation], puppets) if nation in new else puppets)
+        for nation, puppets in known.items()
+    }
+
+
 def update_roster(
     oldRosterPath: t.Optional[str],
     outputPath: t.Optional[str],
     dataPath: str,
+    newPath: t.Optional[str],
     *,
     parse_old: bool = True,
 ) -> None:
@@ -140,7 +176,7 @@ def update_roster(
 
     # Collect data
     with open(dataPath, "r", encoding="utf-8") as file:
-        nations: t.Mapping[str, t.Collection[str]] = json.load(file)
+        known: t.Mapping[str, t.Collection[str]] = json.load(file)
 
     # collect current/old roster
     current: t.Mapping[str, str]
@@ -153,9 +189,8 @@ def update_roster(
         current = read_old_roster(sys.stdin, parse_old)
 
     # compare
-    results = wa_changes(
-        wa_deltas(requester, normalize(current), normalize_known(nations))
-    )
+    deltas = wa_deltas(requester, normalize(current), normalize_known(known))
+    results = wa_changes(deltas)
 
     # Summarize results
     if outputPath:
@@ -163,6 +198,17 @@ def update_roster(
             print_output(file, results)
     else:
         print_output(sys.stdout, results)
+
+    # Optionally output reorganized known data
+    if newPath:
+        with open(newPath, "w", encoding="utf-8") as file:
+            # Cast iterables to list so they can be serialized
+            json.dump(
+                normalize_known(
+                    reorganize(normalize_known(known), extract_new(deltas))
+                ),
+                file,
+            )
 
 
 def main() -> None:
@@ -187,6 +233,13 @@ def main() -> None:
         help="File to output to, instead of stdout",
     )
     parser.add_argument(
+        "--new",
+        "-n",
+        dest="new",
+        default=None,
+        help="Optional file to write reorganized known data to",
+    )
+    parser.add_argument(
         "--json",
         "-j",
         dest="as_json",
@@ -196,7 +249,9 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    update_roster(args.current, args.output, args.roster, parse_old=not args.as_json)
+    update_roster(
+        args.current, args.output, args.roster, args.new, parse_old=not args.as_json
+    )
 
 
 if __name__ == "__main__":
