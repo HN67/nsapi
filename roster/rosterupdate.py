@@ -1,7 +1,6 @@
 """Checks and verifies a WA roster"""
 
 # TODO List
-# Make WA search key on old wa so it doesn't check former members
 # Add feature to output new roster.json with reordered puppet lists,
 # i.e. located WA at the top
 
@@ -41,22 +40,6 @@ def find_wa(requester: nsapi.NSRequester, nations: t.Iterable[str]) -> t.Optiona
     return None
 
 
-def lazy_check(
-    requester: nsapi.NSRequester, nations: t.Mapping[str, t.Collection[str]]
-) -> t.Mapping[str, t.Optional[str]]:
-    """Checks for the WA of each nation.
-
-    Checks the main nation, and the list of puppets.
-    If none are in the WA, prompts for a new nation.
-
-    Only checks until a WA is found.
-    """
-    return {
-        nation: find_wa(requester, itertools.chain([nation], puppets))
-        for nation, puppets in nations.items()
-    }
-
-
 def read_old_roster(file: t.TextIO, is_raw: bool = True) -> t.Mapping[str, str]:
     """Reads the old/current roster from an open file,
     converting from bbcode to JSON if requested.
@@ -67,10 +50,7 @@ def read_old_roster(file: t.TextIO, is_raw: bool = True) -> t.Mapping[str, str]:
         return json.load(file)
 
 
-OStr = t.TypeVar("OStr", str, t.Optional[str])
-
-
-def normalize(mapping: t.Mapping[str, OStr]) -> t.Mapping[str, OStr]:
+def normalize(mapping: t.Mapping[str, str]) -> t.Mapping[str, str]:
     """Normalizes all strings in the given mapping.
 
     Uses nsapi.clean_format, and normalizes strs at both levels of nesting.
@@ -83,21 +63,45 @@ def normalize(mapping: t.Mapping[str, OStr]) -> t.Mapping[str, OStr]:
     }
 
 
+def normalize_roster(
+    lists: t.Mapping[str, t.Iterable[str]]
+) -> t.Mapping[str, t.Iterable[str]]:
+    """Normalizes all keys and items of each value iterable.
+
+    Uses nsapi.clean_format.
+    """
+    return {
+        nsapi.clean_format(key): (nsapi.clean_format(item) for item in value)
+        for key, value in lists.items()
+    }
+
+
 def compare_wa(
-    old: t.Mapping[str, str], activeWA: t.Mapping[str, t.Optional[str]]
+    requester: nsapi.NSRequester,
+    last: t.Mapping[str, str],
+    nations: t.Mapping[str, t.Iterable[str]],
 ) -> t.Mapping[str, t.Optional[str]]:
     """Compares old WA data to scraped active WA data.
 
     Returns a nation only if its WA has changed.
     """
     return {
-        # map to current wa if exists
-        nation: activeWA[nation] if nation in activeWA else None
-        # iterate over the "old" data usually copied from roster
-        for nation, oldWA in old.items()
-        # filter to only keep nations that either arent tracked in active
-        # or have had their wa change
-        if nation not in activeWA or activeWA[nation] != oldWA
+        # Include the nation and its new WA
+        # if there is no new WA or it has changed
+        nation: new
+        for (nation, old, new) in (
+            # Try to find the current WA
+            # of a nation, None if the nation isn't in the data
+            (
+                nation,
+                old,
+                find_wa(requester, itertools.chain([nation], nations[nation])),
+            )
+            if nation in nations
+            else (nation, old, None)
+            for nation, old in last.items()
+        )
+        if new is None or old != new
     }
 
 
@@ -138,11 +142,8 @@ def update_roster(
         # read from stdin
         current = read_old_roster(sys.stdin, parse_old)
 
-    # search for current wa
-    output = lazy_check(requester, nations)
-
     # compare
-    changes = compare_wa(normalize(current), normalize(output))
+    changes = compare_wa(requester, normalize(current), normalize_roster(nations))
 
     # Summarize results
     if outputPath:
