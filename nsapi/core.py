@@ -80,3 +80,31 @@ def same_nation(first: str, second: str) -> bool:
     Implemented by comparing clean_format of both.
     """
     return clean_format(first) == clean_format(second)
+
+
+class Name(str):
+    """A name, insensitive in string equality after normalization."""
+
+    @staticmethod
+    def normal(string: str) -> str:
+        """Normalize the given string."""
+        # str is not neccesary for clean_format
+        # (since .lower(), etc return str)
+        # but we must ensure that normal returns str
+        # not Name, to avoid recursion loops
+        return str(clean_format(string))
+
+    def __eq__(self, other: object) -> bool:
+        """Acts as normalized form for equality checks."""
+        # If the other object is a string we can normalize it
+        if isinstance(other, str):
+            return self.normal(self) == self.normal(other)
+        # Otherwise default to normal string comparison
+        # This looks a bit weird, but super()
+        # creates a proxy object that redirects
+        # the .eq call in the correct MRO spot
+        return super() == other
+
+    def __hash__(self) -> int:
+        """Hash the normalized form."""
+        return hash(self.normal(self))
