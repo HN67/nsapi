@@ -1,7 +1,11 @@
 """Checks and verifies a WA roster"""
 
+# TODO List
+# Make WA search key on old wa so it doesn't check former members
+# Add feature to output new roster.json with reordered puppet lists,
+# i.e. located WA at the top
+
 import argparse
-import dataclasses
 import itertools
 import json
 import logging
@@ -18,46 +22,12 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-@dataclasses.dataclass()
-class Result:
-    """Class containing resulting data from check_roster method."""
-
-    wa: t.Optional[str]
-
-
 def is_wa(requester: nsapi.NSRequester, nation: str) -> bool:
     """Checks if the nation is in the WA"""
     try:
         return requester.nation(nation).wa().startswith("WA")
     except nsapi.ResourceError:
         return False
-
-
-def check_roster(
-    requester: nsapi.NSRequester, nations: t.Mapping[str, t.Collection[str]]
-) -> t.Mapping[str, Result]:
-    """Checks for the WA of each nation.
-
-    Checks the main nation, and the list of puppets.
-    If none are in the WA, prompts for a new nation.
-    """
-    output = {}
-    for nation, puppets in nations.items():
-        # Find current WA nation(s): SHOULD NOT BE PLURAL, WARN IF SO
-        WAs = []
-        if is_wa(requester, nation):
-            WAs.append(nation)
-        WAs.extend(puppet for puppet in puppets if is_wa(requester, puppet))
-        # Warn if len > 1
-        if len(WAs) > 1:
-            print(f"WARNING: {nation} has multiple WA nations: {WAs}")
-        # Construct Result object
-        if WAs:
-            result = Result(nsapi.clean_format(WAs[0]))
-        else:
-            result = Result(None)
-        output[nsapi.clean_format(nation)] = result
-    return output
 
 
 def find_wa(requester: nsapi.NSRequester, nations: t.Iterable[str]) -> t.Optional[str]:
@@ -87,36 +57,6 @@ def lazy_check(
     }
 
 
-def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> None:
-    """Prints output to to given stream"""
-    sortedOutput: t.List[t.Tuple[str, t.Optional[str]]] = sorted(
-        output.items(), key=lambda pair: pair[0]
-    )
-    for nation, wa in sortedOutput:
-        if wa:
-            print(f"{nation} - {wa}", file=file)
-        else:
-            print(f"{nation} - Unknown WA", file=file)
-
-
-def compare_wa(
-    old: t.Mapping[str, str], activeWA: t.Mapping[str, t.Optional[str]]
-) -> t.Mapping[str, t.Optional[str]]:
-    """Compares old WA data to scraped active WA data.
-
-    Returns a nation only if its WA has changed.
-    """
-    return {
-        # map to current wa if exists
-        nation: activeWA[nation] if nation in activeWA else None
-        # iterate over the "old" data usually copied from roster
-        for nation, oldWA in old.items()
-        # filter to only keep nations that either arent tracked in active
-        # or have had their wa change
-        if nation not in activeWA or activeWA[nation] != oldWA
-    }
-
-
 def read_old_roster(file: t.TextIO, is_raw: bool = True) -> t.Mapping[str, str]:
     """Reads the old/current roster from an open file,
     converting from bbcode to JSON if requested.
@@ -141,6 +81,36 @@ def normalize(mapping: t.Mapping[str, OStr]) -> t.Mapping[str, OStr]:
         )
         for key, value in mapping.items()
     }
+
+
+def compare_wa(
+    old: t.Mapping[str, str], activeWA: t.Mapping[str, t.Optional[str]]
+) -> t.Mapping[str, t.Optional[str]]:
+    """Compares old WA data to scraped active WA data.
+
+    Returns a nation only if its WA has changed.
+    """
+    return {
+        # map to current wa if exists
+        nation: activeWA[nation] if nation in activeWA else None
+        # iterate over the "old" data usually copied from roster
+        for nation, oldWA in old.items()
+        # filter to only keep nations that either arent tracked in active
+        # or have had their wa change
+        if nation not in activeWA or activeWA[nation] != oldWA
+    }
+
+
+def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> None:
+    """Prints output to to given stream"""
+    sortedOutput: t.List[t.Tuple[str, t.Optional[str]]] = sorted(
+        output.items(), key=lambda pair: pair[0]
+    )
+    for nation, wa in sortedOutput:
+        if wa:
+            print(f"{nation} - {wa}", file=file)
+        else:
+            print(f"{nation} - Unknown WA", file=file)
 
 
 def update_roster(
