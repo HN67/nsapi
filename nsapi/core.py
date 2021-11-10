@@ -105,6 +105,12 @@ class Name(str):
         # the .eq call in the correct MRO spot
         return super() == other
 
+    # We have to implement this because
+    # we are inheriting from str which seems to override it
+    def __ne__(self, other: object) -> bool:
+        """Acts as normalized form for equality checks."""
+        return not self == other
+
     def __hash__(self) -> int:
         """Hash the normalized form."""
         return hash(self.normal(self))
