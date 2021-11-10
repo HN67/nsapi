@@ -63,8 +63,8 @@ def normalize(mapping: t.Mapping[str, str]) -> t.Mapping[str, str]:
     }
 
 
-def normalize_roster(
-    lists: t.Mapping[str, t.Iterable[str]]
+def normalize_known(
+    known: t.Mapping[str, t.Iterable[str]]
 ) -> t.Mapping[str, t.Iterable[str]]:
     """Normalizes all keys and items of each value iterable.
 
@@ -72,35 +72,45 @@ def normalize_roster(
     """
     return {
         nsapi.clean_format(key): (nsapi.clean_format(item) for item in value)
-        for key, value in lists.items()
+        for key, value in known.items()
     }
 
 
-def compare_wa(
+def wa_deltas(
     requester: nsapi.NSRequester,
-    last: t.Mapping[str, str],
-    nations: t.Mapping[str, t.Iterable[str]],
-) -> t.Mapping[str, t.Optional[str]]:
-    """Compares old WA data to scraped active WA data.
+    roster: t.Mapping[str, str],
+    known: t.Mapping[str, t.Iterable[str]],
+) -> t.Mapping[str, t.Tuple[str, t.Optional[str]]]:
+    """Finds the current WA for each member of the roster.
 
-    Returns a nation only if its WA has changed.
+    Returns an (old, new) pair for each member.
     """
     return {
         # Include the nation and its new WA
         # if there is no new WA or it has changed
-        nation: new
+        nation: (old, new)
         for (nation, old, new) in (
             # Try to find the current WA
             # of a nation, None if the nation isn't in the data
             (
                 nation,
                 old,
-                find_wa(requester, itertools.chain([nation], nations[nation])),
+                find_wa(requester, itertools.chain([nation], known[nation])),
             )
-            if nation in nations
+            if nation in known
             else (nation, old, None)
-            for nation, old in last.items()
+            for nation, old in roster.items()
         )
+    }
+
+
+def wa_changes(
+    deltas: t.Mapping[str, t.Tuple[str, t.Optional[str]]]
+) -> t.Mapping[str, t.Optional[str]]:
+    """Checks which members have had a change in WA."""
+    return {
+        nation: new
+        for (nation, (old, new)) in deltas.items()
         if new is None or old != new
     }
 
@@ -143,14 +153,16 @@ def update_roster(
         current = read_old_roster(sys.stdin, parse_old)
 
     # compare
-    changes = compare_wa(requester, normalize(current), normalize_roster(nations))
+    results = wa_changes(
+        wa_deltas(requester, normalize(current), normalize_known(nations))
+    )
 
     # Summarize results
     if outputPath:
         with open(outputPath, "w", encoding="utf-8") as file:
-            print_output(file, changes)
+            print_output(file, results)
     else:
-        print_output(sys.stdout, changes)
+        print_output(sys.stdout, results)
 
 
 def main() -> None:
