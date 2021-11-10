@@ -2,6 +2,7 @@
 
 import argparse
 import dataclasses
+import itertools
 import json
 import logging
 import sys
@@ -59,33 +60,60 @@ def check_roster(
     return output
 
 
-def print_output(file: t.TextIO, output: t.Mapping[str, Result]) -> None:
+def find_wa(requester: nsapi.NSRequester, nations: t.Iterable[str]) -> t.Optional[str]:
+    """Lazily search the iterable until a WA nation is found.
+
+    Returns None if none of the nations are in the WA.
+    """
+    for nation in nations:
+        if is_wa(requester, nation):
+            return nation
+    return None
+
+
+def lazy_check(
+    requester: nsapi.NSRequester, nations: t.Mapping[str, t.Collection[str]]
+) -> t.Mapping[str, t.Optional[str]]:
+    """Checks for the WA of each nation.
+
+    Checks the main nation, and the list of puppets.
+    If none are in the WA, prompts for a new nation.
+
+    Only checks until a WA is found.
+    """
+    return {
+        nation: find_wa(requester, itertools.chain([nation], puppets))
+        for nation, puppets in nations.items()
+    }
+
+
+def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> None:
     """Prints output to to given stream"""
-    sortedOutput: t.List[t.Tuple[str, Result]] = sorted(
+    sortedOutput: t.List[t.Tuple[str, t.Optional[str]]] = sorted(
         output.items(), key=lambda pair: pair[0]
     )
-    for nation, result in sortedOutput:
-        if result.wa:
-            print(f"{nation} - {result.wa}", file=file)
+    for nation, wa in sortedOutput:
+        if wa:
+            print(f"{nation} - {wa}", file=file)
         else:
             print(f"{nation} - Unknown WA", file=file)
 
 
 def compare_wa(
-    old: t.Mapping[str, str], activeWA: t.Mapping[str, Result]
-) -> t.Mapping[str, Result]:
+    old: t.Mapping[str, str], activeWA: t.Mapping[str, t.Optional[str]]
+) -> t.Mapping[str, t.Optional[str]]:
     """Compares old WA data to scraped active WA data.
 
     Returns a nation only if its WA has changed.
     """
     return {
         # map to current wa if exists
-        nation: activeWA[nation] if nation in activeWA else Result(None)
+        nation: activeWA[nation] if nation in activeWA else None
         # iterate over the "old" data usually copied from roster
         for nation, oldWA in old.items()
         # filter to only keep nations that either arent tracked in active
         # or have had their wa change
-        if nation not in activeWA or activeWA[nation].wa != oldWA
+        if nation not in activeWA or activeWA[nation] != oldWA
     }
 
 
@@ -97,6 +125,22 @@ def read_old_roster(file: t.TextIO, is_raw: bool = True) -> t.Mapping[str, str]:
         return rosterread.read_plain(file.readlines())
     else:
         return json.load(file)
+
+
+OStr = t.TypeVar("OStr", str, t.Optional[str])
+
+
+def normalize(mapping: t.Mapping[str, OStr]) -> t.Mapping[str, OStr]:
+    """Normalizes all strings in the given mapping.
+
+    Uses nsapi.clean_format, and normalizes strs at both levels of nesting.
+    """
+    return {
+        nsapi.clean_format(key): (
+            nsapi.clean_format(value) if value is not None else None
+        )
+        for key, value in mapping.items()
+    }
 
 
 def update_roster(
@@ -111,28 +155,28 @@ def update_roster(
     requester = nsapi.NSRequester(config.userAgent)
 
     # Collect data
-    with open(dataPath, "r") as file:
+    with open(dataPath, "r", encoding="utf-8") as file:
         nations: t.Mapping[str, t.Collection[str]] = json.load(file)
 
     # collect current/old roster
     current: t.Mapping[str, str]
 
     if oldRosterPath:
-        with open(oldRosterPath, "r") as file:
+        with open(oldRosterPath, "r", encoding="utf-8") as file:
             current = read_old_roster(file, parse_old)
     else:
         # read from stdin
         current = read_old_roster(sys.stdin, parse_old)
 
     # search for current wa
-    output = check_roster(requester, nations)
+    output = lazy_check(requester, nations)
 
     # compare
-    changes = compare_wa(current, output)
+    changes = compare_wa(normalize(current), normalize(output))
 
     # Summarize results
     if outputPath:
-        with open(outputPath, "w") as file:
+        with open(outputPath, "w", encoding="utf-8") as file:
             print_output(file, changes)
     else:
         print_output(sys.stdout, changes)
