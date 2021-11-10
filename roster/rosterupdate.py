@@ -1,8 +1,6 @@
 """Checks and verifies a WA roster"""
 
 # TODO List
-# Fix bubble so that if the top
-# isnt in the iterable it isn't yielded
 
 import argparse
 import json
@@ -54,10 +52,7 @@ def normalize(mapping: t.Mapping[str, str]) -> t.Mapping[str, nsapi.Name]:
 
     Uses nsapi.Name, and normalizes strs at both levels of nesting.
     """
-    return {
-        nsapi.Name(key): (nsapi.Name(value) if value is not None else None)
-        for key, value in mapping.items()
-    }
+    return {nsapi.Name(key): nsapi.Name(value) for key, value in mapping.items()}
 
 
 def normalize_known(
@@ -137,9 +132,7 @@ def bubble(top: T, items: t.Iterable[T]) -> t.Iterable[T]:
     that are equal to top.
     """
     yield top
-    for item in items:
-        if item != top:
-            yield item
+    yield from filter(lambda item: item != top, items)
 
 
 def extract_new(
