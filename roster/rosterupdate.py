@@ -5,7 +5,6 @@
 # isnt in the iterable it isn't yielded
 
 import argparse
-import itertools
 import json
 import logging
 import sys
@@ -95,7 +94,7 @@ def wa_deltas(
             (
                 nation,
                 old,
-                find_wa(requester, itertools.chain([nation], known[nation])),
+                find_wa(requester, known[nation]),
             )
             if nation in known
             else (nation, old, None)
