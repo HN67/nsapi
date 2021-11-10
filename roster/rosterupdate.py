@@ -1,9 +1,8 @@
 """Checks and verifies a WA roster"""
 
 # TODO List
-# Implement nsapi NationName? object
-# that is nsapi.clean_format insensitive
-# and acts like a string
+# Fix bubble so that if the top
+# isnt in the iterable it isn't yielded
 
 import argparse
 import itertools
@@ -51,28 +50,28 @@ def read_old_roster(file: t.TextIO, is_raw: bool = True) -> t.Mapping[str, str]:
         return json.load(file)
 
 
-def normalize(mapping: t.Mapping[str, str]) -> t.Mapping[str, str]:
+def normalize(mapping: t.Mapping[str, str]) -> t.Mapping[str, nsapi.Name]:
     """Normalizes all strings in the given mapping.
 
-    Uses nsapi.clean_format, and normalizes strs at both levels of nesting.
+    Uses nsapi.Name, and normalizes strs at both levels of nesting.
     """
     return {
-        nsapi.clean_format(key): (
-            nsapi.clean_format(value) if value is not None else None
-        )
+        nsapi.Name(key): (nsapi.Name(value) if value is not None else None)
         for key, value in mapping.items()
     }
 
 
-def normalize_known(known: t.Mapping[str, t.Iterable[str]]) -> t.Dict[str, t.List[str]]:
+def normalize_known(
+    known: t.Mapping[str, t.Iterable[str]]
+) -> t.Dict[str, t.List[nsapi.Name]]:
     """Normalizes all keys and items of each value iterable.
 
     Produces concrete output
 
-    Uses nsapi.clean_format.
+    Uses nsapi.Name.
     """
     return {
-        nsapi.clean_format(key): [nsapi.clean_format(item) for item in value]
+        nsapi.Name(key): [nsapi.Name(item) for item in value]
         for key, value in known.items()
     }
 
