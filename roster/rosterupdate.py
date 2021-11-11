@@ -1,7 +1,5 @@
 """Checks and verifies a WA roster"""
 
-# TODO List
-
 import argparse
 import json
 import logging
@@ -60,8 +58,6 @@ def normalize_known(
 ) -> t.Dict[str, t.List[nsapi.Name]]:
     """Normalizes all keys and items of each value iterable.
 
-    Produces concrete output
-
     Uses nsapi.Name.
     """
     return {
@@ -109,18 +105,6 @@ def wa_changes(
     }
 
 
-def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> None:
-    """Prints output to to given stream"""
-    sortedOutput: t.List[t.Tuple[str, t.Optional[str]]] = sorted(
-        output.items(), key=lambda pair: pair[0]
-    )
-    for nation, wa in sortedOutput:
-        if wa:
-            print(f"{nation} - {wa}", file=file)
-        else:
-            print(f"{nation} - Unknown WA", file=file)
-
-
 T = t.TypeVar("T")
 
 
@@ -153,6 +137,27 @@ def reorganize(
     }
 
 
+def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> None:
+    """Prints output to to given stream"""
+    sortedOutput: t.List[t.Tuple[str, t.Optional[str]]] = sorted(
+        output.items(), key=lambda pair: pair[0]
+    )
+    for nation, wa in sortedOutput:
+        if wa:
+            print(f"{nation} - {wa}", file=file)
+        else:
+            print(f"{nation} - Unknown WA", file=file)
+
+
+def print_known(
+    file: t.TextIO, known: t.Mapping[str, t.Iterable[str]], pretty: bool = True
+) -> None:
+    """Prints a known mapping to a given stream."""
+    # JSON can't always handle generic objects
+    concrete = {key: list(value) for key, value in known.items()}
+    json.dump(concrete, file, indent=4 if pretty else None, sort_keys=True)
+
+
 def update_roster(
     oldRosterPath: t.Optional[str],
     outputPath: t.Optional[str],
@@ -167,7 +172,7 @@ def update_roster(
 
     # Collect data
     with open(dataPath, "r", encoding="utf-8") as file:
-        known: t.Mapping[str, t.Collection[str]] = json.load(file)
+        known: t.Mapping[str, t.Collection[str]] = normalize_known(json.load(file))
 
     # collect current/old roster
     current: t.Mapping[str, str]
@@ -178,9 +183,10 @@ def update_roster(
     else:
         # read from stdin
         current = read_old_roster(sys.stdin, parse_old)
+    current = normalize(current)
 
     # compare
-    deltas = wa_deltas(requester, normalize(current), normalize_known(known))
+    deltas = wa_deltas(requester, current, known)
     results = wa_changes(deltas)
 
     # Summarize results
@@ -193,13 +199,7 @@ def update_roster(
     # Optionally output reorganized known data
     if newPath:
         with open(newPath, "w", encoding="utf-8") as file:
-            # Cast iterables to list so they can be serialized
-            json.dump(
-                normalize_known(
-                    reorganize(normalize_known(known), extract_new(deltas))
-                ),
-                file,
-            )
+            print_known(file, reorganize(known, extract_new(deltas)))
 
 
 def main() -> None:
