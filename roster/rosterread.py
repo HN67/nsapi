@@ -5,8 +5,6 @@ import re
 import sys
 import typing as t
 
-import nsapi
-
 
 def read_plain(lines: t.Iterable[str]) -> t.Mapping[str, str]:
     """Converts each line into a nation: wa pair"""
@@ -19,7 +17,7 @@ def read_plain(lines: t.Iterable[str]) -> t.Mapping[str, str]:
         nationMatch = re.search(r"\](.*?)\[", line)
         # If both succeed add the pair
         if waMatch and nationMatch:
-            output[nsapi.clean_format(nationMatch[1])] = nsapi.clean_format(waMatch[1])
+            output[nationMatch[1]] = waMatch[1]
     return output
 
 

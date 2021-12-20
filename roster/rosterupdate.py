@@ -144,10 +144,8 @@ def print_output(file: t.TextIO, output: t.Mapping[str, t.Optional[str]]) -> Non
     )
     for nation, wa in sortedOutput:
         if wa:
-            print(
-                f"{nation} - https://www.nationstates.net/nation={nsapi.clean_format(wa)} ({wa})",
-                file=file,
-            )
+            link = f"https://www.nationstates.net/nation={nsapi.clean_format(wa)}"
+            print(f"{nation} - {link} | {wa}", file=file)
         else:
             print(f"{nation} - Unknown WA", file=file)
 
