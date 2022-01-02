@@ -151,7 +151,12 @@ class NSRequester:
         # Make request
         response = requests.Session().send(prepared)  # type: ignore
         # Update ratelimiter
-        self.rateLimiter.update(int(response.headers["X-Ratelimit-Requests-Seen"]))
+        try:
+            count = int(response.headers["X-Ratelimit-Requests-Seen"])
+        except KeyError:
+            count = None
+            logger.warning("Headers %s had no ratelimit header", response.headers)
+        self.rateLimiter.update(count)
         # Return parsed text
         return response
 
