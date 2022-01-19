@@ -4,7 +4,7 @@ import argparse
 import calendar
 import datetime
 import logging
-import os
+import pathlib
 import shlex
 import sys
 import textwrap
@@ -14,6 +14,10 @@ import requests
 
 import config
 import nsapi
+
+# External data spreadsheets
+FORUM_SPREADSHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQolEKIC63tiAK1qpAGac6e-eT99-rjFl6oI8UYf0Rt2CVwWp9KsjOPk8R65O8SS_1yS2Af2fBfR7ly/pub?gid=1835258219&single=true&output=tsv"  # pylint: disable=line-too-long # noqa
+PUPPET_SPREADSHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQolEKIC63tiAK1qpAGac6e-eT99-rjFl6oI8UYf0Rt2CVwWp9KsjOPk8R65O8SS_1yS2Af2fBfR7ly/pub?gid=1588413756&single=true&output=tsv"  # pylint: disable=line-too-long # noqa
 
 # Set logging level
 level = logging.INFO
@@ -71,8 +75,8 @@ def count_change(
     # which one we iterate through
     # Standardize nation name formatting
     delta = {
-        nsapi.clean_format(nationName): ending[nationName] - starting[nationName]
-        for nationName in starting
+        nsapi.clean_format(nationName): ending[nationName] - startCount
+        for nationName, startCount in starting.items()
     }
 
     return delta, invalid
@@ -87,12 +91,9 @@ def _get_forum_names() -> t.Mapping[str, str]:
 
     Guarenteed to return cleaned format of nation names.
     """
-    source = (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
-        "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1835258219&single=true&output=tsv"
-    )
+    source = FORUM_SPREADSHEET
 
-    logging.info("Retrieving nation-forum mappings")
+    logger.info("Retrieving nation-forum mappings")
 
     text = requests.get(source).text
     # 2D table: each first-level element is a row,
@@ -103,7 +104,7 @@ def _get_forum_names() -> t.Mapping[str, str]:
 
     usernames = {nsapi.clean_format(row[0]): row[1] for row in table if row[1]}
 
-    logging.info("Retrieved nation-forum mappings")
+    logger.info("Retrieved nation-forum mappings")
 
     return usernames
 
@@ -214,7 +215,7 @@ def generate_report(month: datetime.date, count: t.Mapping[str, int]) -> str:
             [/tbody][/table]
 
             The following Cards Co-op members were moved to inactive status:
-            {"".join(nation for nation in inactive)}
+            {" ".join(nation for nation in inactive)}
             [/div]
         """
     )
@@ -233,7 +234,8 @@ def main() -> None:
     )
 
     subparsers = parser.add_subparsers(
-        help="The possible modes, rerun with [mode] -h for more info.", dest="sub",
+        help="The possible modes, rerun with [mode] -h for more info.",
+        dest="sub",
     )
 
     datesParser = subparsers.add_parser("dates")
@@ -273,10 +275,7 @@ def main() -> None:
     )
 
     # XKI Puppet List
-    default_source = (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
-        "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1588413756&single=true&output=tsv"
-    )
+    default_source = PUPPET_SPREADSHEET
 
     parser.add_argument(
         "-s",
@@ -313,7 +312,7 @@ def main() -> None:
 
     # Get input data
     if args.file:
-        with open(nsapi.absolute_path(args.source)) as file:
+        with open(nsapi.absolute_path(args.source), "r", encoding="utf-8") as file:
             nations = [line.split("\t") for line in file.readlines()]
     else:
         text = requests.get(args.source).text
@@ -345,7 +344,7 @@ def main() -> None:
         # Last day of this month, i.e. 08 -> 08-31
         end = month.replace(day=calendar.monthrange(month.year, month.month)[1])
 
-    logging.info("month: %s start: %s end: %s", month, start, end)
+    logger.info("month: %s start: %s end: %s", month, start, end)
 
     counts = count_change(requester, puppets.keys(), start, end)
     changes = counts[0]
@@ -361,7 +360,7 @@ def main() -> None:
 
     # Write output
     if args.output is not None:
-        with open(args.output, "w") as file:
+        with open(args.output, "w", encoding="utf-8") as file:
             write_output(file)
     else:
         write_output(sys.stdout)
@@ -373,17 +372,14 @@ def main() -> None:
     # if args.sub == "month" and args.report:
     if args.report:
         report = generate_report(month, collected_count)
-        # Check for output directory
-        if not os.path.isdir(nsapi.absolute_path("IssuePayoutReports")):
-            os.mkdir(nsapi.absolute_path("IssuePayoutReports"))
+        # Format the month to always be 2-digit
+        path = pathlib.Path(
+            f"IssuePayoutReports/issuePayoutReport_{month.year}-{month.month:0>2d}.txt"
+        )
+        # Ensure output directory
+        path.parent.mkdir(parents=True, exist_ok=True)
         # Write the report
-        with open(
-            nsapi.absolute_path(
-                # Format the month to always be 2-digit
-                f"IssuePayoutReports/issuePayoutReport_{month.year}-{month.month:0>2d}.txt"
-            ),
-            "w",
-        ) as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(report)
 
 
