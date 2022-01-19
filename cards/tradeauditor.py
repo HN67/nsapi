@@ -9,6 +9,8 @@ import config
 import nsapi
 from cards import rarityfinder
 
+PUPPET_SPREADSHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQolEKIC63tiAK1qpAGac6e-eT99-rjFl6oI8UYf0Rt2CVwWp9KsjOPk8R65O8SS_1yS2Af2fBfR7ly/pub?gid=1588413756&single=true&output=tsv"  # pylint: disable=line-too-long # noqa
+
 # Set logging level
 level = logging.INFO
 logging.basicConfig(level=level)
@@ -24,10 +26,7 @@ rarityfinder.verify_rarity_data(requester, "legendary")
 cards = rarityfinder.load_rarity_data("legendary")
 
 # load member nations
-response = requests.get(
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSem15AVLXgdjxWBZOnWRFnF6NwkY0gVKPYI8"
-    "aWuHJzlbyILBL3o1F5GK1hSK3iiBlXLIZBI5jdpkVr/pub?gid=1588413756&single=true&output=tsv"
-)
+response = requests.get(PUPPET_SPREADSHEET)
 members = {
     nsapi.clean_format(line.split("\t")[0]) for line in response.text.split("\r\n")
 }
@@ -68,7 +67,7 @@ for card in cards:
             trades.append((card, trade))
 
 # display filtered trades
-with open(nsapi.absolute_path(output), "w") as file:
+with open(nsapi.absolute_path(output), "w", encoding="utf-8") as file:
     for card, trade in trades:
         print(
             f"{card['name']} "
