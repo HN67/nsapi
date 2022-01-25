@@ -229,8 +229,9 @@ class DeckInfo:
 
     name: str
     numCards: int
-    rank: int
-    regionRank: int
+
+    rank: t.Optional[int]
+    regionRank: t.Optional[int]
 
     @classmethod
     def from_xml(cls, node: etree.Element) -> DeckInfo:
@@ -251,8 +252,10 @@ class DeckInfo:
             else None,
             name=data.simple("NAME"),
             numCards=int(data.simple("NUM_CARDS")),
-            rank=int(data.simple("RANK")),
-            regionRank=int(data.simple("REGION_RANK")),
+            rank=int(data.simple("RANK")) if data.simple("RANK") else None,
+            regionRank=int(data.simple("REGION_RANK"))
+            if data.simple("REGION_RANK")
+            else None,
         )
 
 

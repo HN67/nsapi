@@ -56,11 +56,14 @@ def main() -> None:
     previousPath = input("Previous Output File: ")
 
     print("\nEnter the name of the output file (defaults to `participants.txt`)")
-    outputPath = nsapi.absolute_path(input("Output Path: "))
+    outputPath = input("Output Path: ")
+    if not outputPath:
+        outputPath = "participants.txt"
 
     # Load previous file if provided
+    previous: set[str] = set()
     if previousPath:
-        with open(nsapi.absolute_path(previousPath), "r") as f:
+        with open(previousPath, "r", encoding="utf-8") as f:
             # Each nation name is surrounded by [nation]...[/nation] tags
             # we remove the leading ones, and then split on the trailing ones
             # this leaves an extra empty element due to the trailing end tag at the end,
@@ -78,7 +81,7 @@ def main() -> None:
 
     participants = check_region(requester, region, previous)
 
-    with open(outputPath, "w") as file:
+    with open(outputPath, "w", encoding="utf-8") as file:
         for participant in participants:
             print(f"[nation]{participant}[/nation]", file=file, end="")
         # Print a trailing newline
