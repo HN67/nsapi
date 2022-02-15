@@ -27,18 +27,10 @@ def residents(requester: nsapi.NSRequester, region: str) -> Collection[str]:
     )
 
 
-def listLinks(nations: Iterable[str]) -> str:
-    """Returns a string containing the given nations formatted into links,
-    seperated by newlines (with trailing).
-    """
+def nation_url(nation: str) -> str:
+    """Format a nation into a URL."""
 
-    return (
-        "\n".join(
-            f"https://www.nationstates.net/nation={nsapi.clean_format(nation)}"
-            for nation in nations
-        )
-        + "\n"
-    )
+    return f"https://www.nationstates.net/nation={nsapi.clean_format(nation)}"
 
 
 def listNationCodes(nations: Iterable[str]) -> str:
@@ -101,22 +93,36 @@ def main() -> None:
         "-o", "--output", help="File name to output to instead of stdout.", default=None
     )
 
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["raw", "url", "bbcode"],
+        default="bbcode",
+        help="How to format the output.",
+    )
+
     # Parse args
     # Check sys.argv first; if no args provided run interactive mode
+    region: str
+    count: t.Optional[int]
+    output: t.Optional[str]
+    form: str
     if len(sys.argv) <= 1:
         # Interactive mode
         region = input("Region to search: ")
         count_raw = input("Endorsement boundary (type nothing to get all WA): ")
-        count: t.Optional[int]
         if count_raw:
             count = int(count_raw)
         else:
             count = None
         output = input("File name to output to: ")
+        form = "bbcode"
     else:
         args = parser.parse_args()
         region = args.region
         count = args.count
+        output = args.output
+        form = args.format
 
     # Setup requester
     requester = nsapi.NSRequester(config.userAgent)
@@ -128,13 +134,19 @@ def main() -> None:
     else:
         nations = low_endorsements(requester, region, count)
 
-    # print(listLinks(nations))
-    # print(nations)
-    if output:
-        with open(output, "w") as out_file:
-            print(listNationCodes(nations), file=out_file)
+    output_block: str
+    if form == "url":
+        output_block = "\n".join(map(nation_url, nations))
+    elif form == "bbcode":
+        output_block = listNationCodes(nations)
     else:
-        print(listNationCodes(nations))
+        output_block = "\n".join(nations)
+
+    if output:
+        with open(output, "w", encoding="utf-8") as out_file:
+            print(output_block, file=out_file)
+    else:
+        print(output_block)
 
 
 # Call main if this script is the entrypoint
