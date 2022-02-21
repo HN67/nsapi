@@ -10,7 +10,7 @@ import nsapi
 
 def resolve_path(rarity: str) -> str:
     """Generates an absolute path using the rarity name"""
-    return nsapi.absolute_path(f"{rarity}Cards.json")
+    return f"{rarity}Cards.json"
 
 
 def verify_rarity_data(requester: nsapi.NSRequester, rarity: str) -> None:
@@ -23,7 +23,7 @@ def load_rarity_data(rarity: str) -> Sequence[Mapping[str, str]]:
     """Attempts to load the given rarity data. The data should be
     verified with `verify_rarity_data` first.
     """
-    with open(resolve_path(rarity)) as file:
+    with open(resolve_path(rarity), encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -42,7 +42,7 @@ def find_rarities(requester: nsapi.NSRequester, rarity: str) -> None:
             cards.append((card, "2"))
 
     # Dump everything as strings so its easier to use
-    with open(resolve_path(rarity), "w") as file:
+    with open(resolve_path(rarity), "w", encoding="utf-8") as file:
         json.dump(
             [
                 {"cardid": str(card.id), "season": season, "name": card.name}

@@ -67,7 +67,7 @@ for card in cards:
             trades.append((card, trade))
 
 # display filtered trades
-with open(nsapi.absolute_path(output), "w", encoding="utf-8") as file:
+with open(output, "w", encoding="utf-8") as file:
     for card, trade in trades:
         print(
             f"{card['name']} "

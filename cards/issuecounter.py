@@ -312,7 +312,7 @@ def main() -> None:
 
     # Get input data
     if args.file:
-        with open(nsapi.absolute_path(args.source), "r", encoding="utf-8") as file:
+        with open(args.source, "r", encoding="utf-8") as file:
             nations = [line.split("\t") for line in file.readlines()]
     else:
         text = requests.get(args.source).text

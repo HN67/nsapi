@@ -90,7 +90,7 @@ def main() -> None:
     # We save Nation objects so that they can all use the same Auth, i.e. pin
     nations: MutableMapping[str, nsapi.Nation] = {}
 
-    with open(nsapi.absolute_path(dataPath), "r", newline="") as file:
+    with open(dataPath, "r", newline="", encoding="utf-8") as file:
         csvReader = csv.reader(file)
         for row in csvReader:
             try:

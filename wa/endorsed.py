@@ -45,7 +45,7 @@ nonendorsers = citizens - endorsers
 
 # Print output in formatted manner
 logging.info("Outputting results\n")
-with open(nsapi.absolute_path("endorsed.txt"), "w") as f:
+with open("endorsed.txt", "w", encoding="utf-8") as f:
     # Header
     print(f"The following WA Members of {region} have not endorsed {target}:", file=f)
     for step, nonendorser in enumerate(nonendorsers):
