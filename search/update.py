@@ -94,7 +94,8 @@ def main() -> None:
     """Main function"""
 
     parser = argparse.ArgumentParser(
-        description="Check for WA Delegacy changes.\n", epilog=delegacy.__doc__,
+        description="Check for WA Delegacy changes.\n",
+        epilog=delegacy.__doc__,
     )
 
     parser.add_argument(

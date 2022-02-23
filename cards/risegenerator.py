@@ -10,7 +10,7 @@ def rule(nation: str) -> str:
     """Produce a ContainerRise rule for a nation."""
 
     clean = nsapi.clean_format(nation)
-    return fr"@^.*\.nationstates\.net/(.*/)?nation={clean}(/.*)?$ , {nation}"
+    return rf"@^.*\.nationstates\.net/(.*/)?nation={clean}(/.*)?$ , {nation}"
 
 
 def main() -> None:

@@ -37,7 +37,9 @@ def uncrossed(
     endos: List[str] = [
         happening.text
         for happening in requester.world().happenings(
-            view=f"nation.{nation}", filter="endo", sincetime=str(timestamp),
+            view=f"nation.{nation}",
+            filter="endo",
+            sincetime=str(timestamp),
         )
     ]
 

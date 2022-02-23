@@ -14,7 +14,9 @@ logger.addHandler(logging.NullHandler())
 
 
 def deployed(
-    requester: nsapi.NSRequester, lead: str, roster: t.Mapping[str, t.Iterable[str]],
+    requester: nsapi.NSRequester,
+    lead: str,
+    roster: t.Mapping[str, t.Iterable[str]],
 ) -> t.Collection[str]:
     """Determine who are deployed and endorsing the lead."""
     # Obtain endorsement list of lead
