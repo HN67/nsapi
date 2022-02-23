@@ -2,22 +2,11 @@
 See https://www.nationstates.net/pages/api.html for NS API details
 """
 
-# Reconsider absolute_path:
-# Linking everything to a __file__ based path has several problems,
-# in that it works well when nsapi.py is a script, but gives the user less control than cwd
-# essentially trades control for convience (not all users may understand cwd)
-# Users not understanding cwd is unlikely to be a problem; e.g. running a script
-# on windows by double clicking it typically makes the cwd the location of the script
-# If a user ends up using cmd, cwd will still be somewhere sane (user root?) unless in administrator
-# output files should probably be largely put into cwd, but perhaps __file__ is better
-# for data files that the end user doesnt need to see.
-# However, it can break completely when doing things such as compiling with pyinstaller,
-# and probably wont work if trying to make a package.
-# The probably conclusion is that abs_path is useful for scripts, but not the kind
-# of package/library nsapi is becoming.
-# A related concept is the data dumps, since they produce the most files (at decently large ones).
-# Ideally, there should be an easy way to remove a dump, maybe automatically?
-# Not sure how that would look, maybe once its done iterating it removes it.
+# TODO
+# Consider providing a base cmd line interface
+# for scripts that use nsapi; such as options for specifying user agent,
+# resources directory (and autocleanup), etc
+# Should we make a clean script that deletes any data dumps?
 
 
 # Standard library modules

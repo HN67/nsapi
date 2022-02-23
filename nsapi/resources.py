@@ -34,14 +34,10 @@ except NameError:
     basePath = os.getcwd()
 
 
-# Not sure if absolute_path belongs in here, but possibly.
-# about the only valid use I can think of for this function
-# (other than previous usages which should be changed)
-# is for resources
 def absolute_path(path: str) -> str:
     """Return the absolute path of a given path based on this file.
 
-    Use of this function is not recommended, prefer basing of the cwd.
+    Use of this function is not recommended, prefer basing off the cwd.
     """
     return os.path.join(os.path.dirname(basePath), path)
 
@@ -160,9 +156,9 @@ class ResourceManager:
         """Returns target if provided, else a constructed path from Resource name.
 
         If target is truthy (i.e. not None or empty), it is returned unchanged.
-        Otherwise, returns a path constructed by calling absolute_path(resource.name).
+        Otherwise, returns a path based on resource.name.
         """
-        return target or absolute_path(resource.name)
+        return target or resource.name
 
     def download(self, resource: Resource, target: str = None) -> None:
         """Downloads the given resource by assuming the source is a HTTP URL.
@@ -195,7 +191,7 @@ class ResourceManager:
         logger.info("Checking resource timestamp marker.")
         try:
             # Try loading marker
-            with open(self.markerFile, "r") as f:
+            with open(self.markerFile, "r", encoding="utf-8") as f:
                 marker = json.load(f)
         except FileNotFoundError:
             # Download if marker does not exist
@@ -218,7 +214,7 @@ class ResourceManager:
                 self.verify(resource, target)
 
         # Save the marker
-        with open(self.markerFile, "w") as f:
+        with open(self.markerFile, "w", encoding="utf-8") as f:
             json.dump(marker, f)
 
 
@@ -273,7 +269,7 @@ class DumpManager:
 
         logger.info("Parsing XML tree")
         # Attempt to load the data
-        with gzip.open(self.resourceManager.resolve(resource, location)) as dump:
+        with gzip.open(self.resourceManager.resolve(resource, location), "rt") as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
@@ -294,11 +290,11 @@ class DumpManager:
 
         logger.info("Iteratively parsing XML")
         # Attempt to load the data
-        with gzip.open(self.resourceManager.resolve(resource, location)) as dump:
+        with gzip.open(self.resourceManager.resolve(resource, location), "rt") as dump:
 
             # Looking for start events allows us to retrieve
             # the starting, parent, element using the `next()` call.
-            iterator = etree.iterparse(dump, events=("start", "end"))
+            iterator = etree.iterparse(dump, events=("start", "end"))  # type: ignore
             # We get the root so that we can clear from it, removing
             # xml nodes references after they have been yielded.
             _, root = next(iterator)
