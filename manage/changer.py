@@ -55,7 +55,7 @@ data_file = input("Enter file name of nation,current,new lines: ")
 
 # load file
 changes = []
-with open(data_file, "r") as file:
+with open(data_file, "r", encoding="utf-8") as file:
     for line in file:
         if not line == "\n":
             pieces = line.strip().split(",")

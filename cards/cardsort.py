@@ -83,7 +83,8 @@ def extracted_cards(
 
 
 def named_cards(
-    requester: nsapi.NSRequester, cards: Iterable[nsapi.CardIdentifier],
+    requester: nsapi.NSRequester,
+    cards: Iterable[nsapi.CardIdentifier],
 ) -> Mapping[int, str]:
     """Maps each CardIdentifier to the nation name,
     using the card dumps. Returns a mapping from id to name
@@ -115,7 +116,7 @@ def main() -> None:
     fileName = input("File name: ")
     if fileName != "":
         # Read each line, and split on ,
-        with open(fileName, "r") as file:
+        with open(fileName, "r", encoding="utf-8") as file:
             for line in file:
                 nations.extend(line.strip().split(","))
 
@@ -170,7 +171,7 @@ def main() -> None:
     names = named_cards(requester, extracted_cards(data))
     # Output the data as a csv file format
     path = Path("cardsort.csv").resolve()
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         # Write the csv headers
         headers = "card, cardName, nation, rarity"
         # Only add copies header if collecting
@@ -192,12 +193,14 @@ def main() -> None:
                         if not collect:
                             for _ in range(count):
                                 print(
-                                    row, file=f,
+                                    row,
+                                    file=f,
                                 )
                         # Write each data in a different column
                         else:
                             print(
-                                row + f", {count}", file=f,
+                                row + f", {count}",
+                                file=f,
                             )
     print(f"Outputted to {path}")
     # prevents the window from immediately closing if opened standalone

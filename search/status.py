@@ -40,7 +40,12 @@ def retrieve_status(requester: nsapi.NSRequester, nation: str) -> Status:
     try:
         shard_info = requester.nation(nation).shards("region", "wa")
     except nsapi.ResourceError:
-        return Status(nsapi.clean_format(nation), True, None, None,)
+        return Status(
+            nsapi.clean_format(nation),
+            True,
+            None,
+            None,
+        )
     else:
         return Status(
             nsapi.clean_format(nation),
@@ -159,7 +164,7 @@ def main(argv: t.Optional[t.Sequence[str]] = None) -> None:
         text = requests.get(args.source).text
         table = [line.split(delim) for line in text.splitlines()]
     else:
-        with open(args.source) as file:
+        with open(args.source, encoding="utf-8") as file:
             table = [line.strip().split(delim) for line in file.readlines()]
 
     # Create requester
@@ -174,7 +179,7 @@ def main(argv: t.Optional[t.Sequence[str]] = None) -> None:
 
     # Write output
     logging.info("Writing output to %s", os.path.abspath(args.output))
-    with open(args.output, "w") as file:
+    with open(args.output, "w", encoding="utf-8") as file:
         for line in combined:
             print("\t".join(line), file=file)
 

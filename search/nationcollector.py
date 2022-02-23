@@ -25,8 +25,7 @@ def filter_regions(
 def get_nations_by_region(
     requester: nsapi.NSRequester, regions: t.Iterable[str]
 ) -> t.Mapping[str, t.Iterable[str]]:
-    """Returns an mapping from region to all residents of that region.
-    """
+    """Returns an mapping from region to all residents of that region."""
 
     regionSet = set(nsapi.clean_format(string) for string in regions)
 
@@ -73,7 +72,7 @@ def assemble_defender_announcment(requester: nsapi.NSRequester) -> str:
 def main() -> None:
     """Main function"""
     requester = nsapi.NSRequester(config.userAgent)
-    with open("defenderNations.txt", "w") as f:
+    with open("defenderNations.txt", "w", encoding="utf-8") as f:
         print(assemble_defender_announcment(requester), file=f)
 
 
