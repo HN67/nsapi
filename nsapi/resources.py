@@ -269,7 +269,9 @@ class DumpManager:
 
         logger.info("Parsing XML tree")
         # Attempt to load the data
-        with gzip.open(self.resourceManager.resolve(resource, location), "rt") as dump:
+        with gzip.open(
+            self.resourceManager.resolve(resource, location), "rt", encoding="utf-8"
+        ) as dump:
             xml = etree.parse(dump).getroot()
 
         # Return the xml
@@ -290,11 +292,13 @@ class DumpManager:
 
         logger.info("Iteratively parsing XML")
         # Attempt to load the data
-        with gzip.open(self.resourceManager.resolve(resource, location), "rt") as dump:
+        with gzip.open(
+            self.resourceManager.resolve(resource, location), "rt", encoding="utf-8"
+        ) as dump:
 
             # Looking for start events allows us to retrieve
             # the starting, parent, element using the `next()` call.
-            iterator = etree.iterparse(dump, events=("start", "end"))  # type: ignore
+            iterator = etree.iterparse(dump, events=("start", "end"))
             # We get the root so that we can clear from it, removing
             # xml nodes references after they have been yielded.
             _, root = next(iterator)
