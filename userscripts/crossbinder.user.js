@@ -4,6 +4,7 @@
 // @version      0.1
 // @description  Add crossing keybinds
 // @author       HN67
+// @downloadURL  https://github.com/HN67/nsapi/raw/master/userscripts/crossbinder.user.js
 // @match        https://www.nationstates.net/*
 // @require      https://craig.global.ssl.fastly.net/js/mousetrap/mousetrap.min.js?a4098
 // @grant        GM.setValue

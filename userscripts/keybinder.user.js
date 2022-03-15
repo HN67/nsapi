@@ -4,6 +4,7 @@
 // @version      0.1
 // @description  Add keybinds to NationStates pages
 // @author       HN67
+// @downloadURL  https://github.com/HN67/nsapi/raw/master/userscripts/keybinder.user.js
 // @match        https://www.nationstates.net/*
 // @require      https://craig.global.ssl.fastly.net/js/mousetrap/mousetrap.min.js?a4098
 // ==/UserScript==

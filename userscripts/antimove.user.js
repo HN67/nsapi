@@ -4,6 +4,7 @@
 // @version      0.1
 // @description  Prevents moving a nation
 // @author       HN67
+// @downloadURL  https://github.com/HN67/nsapi/raw/master/userscripts/antimove.user.js
 // @match        https://www.nationstates.net/*
 // ==/UserScript==
 
