@@ -3,10 +3,13 @@ See https://www.nationstates.net/pages/api.html for NS API details
 """
 
 # TODO
+# Explore creating an async api
 # Consider providing a base cmd line interface
-# for scripts that use nsapi; such as options for specifying user agent,
-# resources directory (and autocleanup), etc
+#   for scripts that use nsapi; such as options for specifying user agent,
+#   resources directory (and autocleanup), etc
 # Should we make a clean script that deletes any data dumps?
+# Review API shards/request methods interface
+# Develop comprehensive nation (and region?) high level API
 
 
 # Standard library modules
