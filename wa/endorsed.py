@@ -69,9 +69,15 @@ def main() -> None:
         help="Format nations with bbcode links. Overridden by --format.",
         action="store_true",
     )
+    parser.add_argument(
+        "--sep",
+        help="Seperator; most useful for raw or bbcode format.",
+        default="\n",
+    )
 
     args = parser.parse_args()
-    target = args.nation
+    target: str = args.nation
+    sep: str = args.sep
 
     # Setup API
     requester = nsapi.NSRequester(config.userAgent)
@@ -85,14 +91,16 @@ def main() -> None:
     if args.format:
         print(f"The following WA Members of {region} have not endorsed {target}:")
 
-    for step, nonendorser in enumerate(nonendorsers):
-        if args.format:
-            # Increment step so that it is 1-based
-            print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}")
-        elif args.bbcode:
-            print(f"[nation]{nonendorser}[/nation]")
-        else:
-            print(nonendorser)
+    print(
+        sep.join(
+            f"{step+1}. https://www.nationstates.net/nation={nonendorser}"
+            if args.format
+            else f"[nation]{nonendorser}[/nation]"
+            if args.bbcode
+            else f"{nonendorser}"
+            for step, nonendorser in enumerate(nonendorsers)
+        )
+    )
 
 
 if __name__ == "__main__":
