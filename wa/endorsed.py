@@ -1,53 +1,99 @@
 """Determines who has not endorsed someone on NationStates"""
 
-# Import logging
+# Import standard modules
+import argparse
 import logging
+import typing as t
 
-# Import nsapi
+# Import library code
 import nsapi
 import config
 
 # Set logging level
-level = logging.INFO
-logging.basicConfig(level=level)
 # Name logger
-logger = logging.getLogger()
-# Change nsapi logging level
-nsapi.logger.setLevel(level=level)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
-# Setup API
-requester = nsapi.NSRequester(config.userAgent)
 
-# Set target nation to check against
-target = "kuriko"
+def non_endorsers(
+    requester: nsapi.NSRequester, nation: str
+) -> t.Tuple[str, t.Iterable[str]]:
+    """Find the region and all non-endorsers of a nation."""
 
-# Collect region
-region = requester.nation(target).shard("region")
+    # Set target nation to check against
+    target = nation
 
-# Pull target endorsement list
-endorsers = set(requester.nation(target).shard("endorsements").split(","))
+    # Collect region
+    region = requester.nation(target).shard("region")
 
-# Pull all nations in the region that are WA members
-logging.info("Collecting %s WA Members", region)
+    # Pull target endorsement list
+    endorsers = set(requester.nation(target).shard("endorsements").split(","))
 
-# Pull all world wa nations
-worldWA = set(requester.wa().shard("members").split(","))
+    # Pull all nations in the region that are WA members
+    logging.info("Collecting %s WA Members", region)
 
-# Pull all region nations
-regionNations = set(requester.region(region).shard("nations").split(":"))
+    # Pull all world wa nations
+    worldWA = set(requester.wa().shard("members").split(","))
 
-# Intersect wa members and region members
-citizens = worldWA & regionNations
+    # Pull all region nations
+    regionNations = set(requester.region(region).shard("nations").split(":"))
 
-logging.info("Comparing WA Member list with target endorsers")
-# Determine WA members who have not endorsed target
-nonendorsers = citizens - endorsers
+    # Intersect wa members and region members
+    citizens = worldWA & regionNations
 
-# Print output in formatted manner
-logging.info("Outputting results\n")
-with open("endorsed.txt", "w", encoding="utf-8") as f:
+    logging.info("Comparing WA Member list with target endorsers")
+    # Determine WA members who have not endorsed target
+    nonendorsers = citizens - endorsers
+
+    return (region, nonendorsers)
+
+
+def main() -> None:
+    """Main function"""
+
+    # Change nsapi logging level
+    nsapi.enable_logging()
+
+    # Parse nation from command line
+    parser = argparse.ArgumentParser(description="Determine who has not been endorsed.")
+    parser.add_argument(
+        "nation", help="Check who has not endorsed this nation.", default=None
+    )
+    parser.add_argument(
+        "--format",
+        help="Format output.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--bbcode",
+        help="Format nations with bbcode links. Overridden by --format.",
+        action="store_true",
+    )
+
+    args = parser.parse_args()
+    target = args.nation
+
+    # Setup API
+    requester = nsapi.NSRequester(config.userAgent)
+
+    region, nonendorsers = non_endorsers(requester, nation=target)
+
+    # Print output in formatted manner
+    logging.info("Outputting results")
+
     # Header
-    print(f"The following WA Members of {region} have not endorsed {target}:", file=f)
+    if args.format:
+        print(f"The following WA Members of {region} have not endorsed {target}:")
+
     for step, nonendorser in enumerate(nonendorsers):
-        # Increment step so that it is 1-based
-        print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}", file=f)
+        if args.format:
+            # Increment step so that it is 1-based
+            print(f"{step+1}. https://www.nationstates.net/nation={nonendorser}")
+        elif args.bbcode:
+            print(f"[nation]{nonendorser}[/nation]")
+        else:
+            print(nonendorser)
+
+
+if __name__ == "__main__":
+    main()
