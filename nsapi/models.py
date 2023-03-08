@@ -557,5 +557,54 @@ class RegionStandard:
         )
 
 
+@dataclasses.dataclass(frozen=True)
+class Message:
+    """A message on a regional message board (RMB)."""
+
+    # Region the message is from
+    region: str
+
+    # Unique id, timestamp, and author
+    id: int
+    timestamp: int
+    nation: str
+
+    # Status of post
+    # (https://www.nationstates.net/pages/api.html#regionapi)
+    # and suppressor if suppressed
+    # 0: Regular post
+    # 1: Post is suppressed but viewable, has SUPPRESSOR field
+    # 2: Post was deleted by the author and is not viewable
+    # 9: Post was suppressed by a moderator and is not viewable
+    status: int
+    suppressor: Optional[str]
+
+    # Number of likes and who liked the message
+    # (empty if 0 likes)
+    likes: int
+    likers: Sequence[str]
+
+    # Actual raw content of the message
+    message: str
+
+    @classmethod
+    def from_xml(cls, region: str, node: etree.Element) -> Message:
+        """Create a Message object from an XML response."""
+        fields = label_children(node)
+        return cls(
+            region=region,
+            id=int(node.attrib["id"]),
+            timestamp=int(content(fields["TIMESTAMP"])),
+            nation=content(fields["NATION"]),
+            status=int(content(fields["STATUS"])),
+            suppressor=(
+                content(fields["SUPPRESSOR"]) if "SUPPRESSOR" in fields else None
+            ),
+            likes=int(content(fields["LIKES"])),
+            likers=content(fields["LIKERS"]).split(":") if "LIKERS" in fields else [],
+            message=content(fields["MESSAGE"]),
+        )
+
+
 # StandardParser
 SParser = t.TypeVar("SParser", NationStandard, RegionStandard)

@@ -29,6 +29,7 @@ from nsapi.models import (
     Trade,
     Dossier,
     Happening,
+    Message,
 )
 from nsapi.resources import DumpManager
 
@@ -574,6 +575,35 @@ class Region(API):
         """Returns a RegionStandard object for this Region"""
         return RegionStandard.from_xml(
             as_xml(self.requester.parameter_request(region=self.name).text)
+        )
+
+    def _messages_root(
+        self, headers: Optional[Mapping[str, str]] = None, **parameters: str
+    ) -> etree.Element:
+        """Returns the NS API messages shard root element."""
+        return self.shards_xml("messages", headers=headers, **parameters)["messages"]
+
+    def messages(
+        self,
+        amount: int = 100,
+        headers: Optional[Mapping[str, str]] = None,
+        **parameters: str,
+    ) -> Iterable[Message]:
+        """Retrieve the NS API messages response for this region.
+
+        Amount should be 1 to 100.
+        """
+        # We request this many messages at once
+        message_bucket_size = 100
+        offset = 0
+        return (
+            Message.from_xml(region=self.name, node=node)
+            for node in self._messages_root(
+                headers=headers,
+                limit=str(max(message_bucket_size, amount)),
+                # offset=str(offset),
+                **parameters,
+            )
         )
 
 
