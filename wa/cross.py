@@ -5,6 +5,7 @@ import typing as t
 from typing import Iterable, List, Set
 
 # Import core modules
+import argparse
 import logging
 import time
 
@@ -52,13 +53,13 @@ def uncrossed(
     # index [3] retrieves the endorsed nation, index [1] retrieves the endorser
     # [1] is used to verify outgoing ( by checking == nation), and [3] retrieves the endorsee
     # Note: Splitting twice, could be optimized with pre-comprehension, for loop, or walrus operator
-    logging.info("Filtering for outgoing endorsements")
+    logger.info("Filtering for outgoing endorsements")
     outgoing: Set[str] = set(
         text.split("@@")[3] for text in endos if text.split("@@")[1] == nation
     )
 
     # Unendorsed is obtained by subtracting the outgoing endorsements from the lead endorsement list
-    logging.info("Obtaining uncross endorsed nations")
+    logger.info("Obtaining uncross endorsed nations")
     unendorsed = nations - outgoing
     return unendorsed
 
@@ -106,21 +107,38 @@ def main() -> None:
 
     nsapi.enable_logging()
 
+    # Parse nation from command line
+    parser = argparse.ArgumentParser(description="Find missing crosses.")
+    parser.add_argument(
+        "lead", help="Base off of this cross point nation.", default=None
+    )
+    parser.add_argument(
+        "--format",
+        help="Format output.",
+        action="store_true",
+    )
+    args = parser.parse_args()
+
+    lead: str = args.lead
+    format_output: bool = args.format
+
     # Provide proper user agent to api requester
     requester = nsapi.NSRequester(config.userAgent)
 
-    # Function arguments, could be connected to command line, etc
-    lead = "isle_of_westland"
-
     # Actually run the bulk logic
-    # print(uncrossed(requester, nation, lead, duration=3600 * 3))
-
     missing = missing_crosses(endorsements(requester, lead))
 
-    for nation, task in sorted(missing.items(), key=lambda pair: pair[0]):
-        print(f"{nation}:")
-        for index, other in enumerate(task, start=1):
-            print(f"{index}. https://www.nationstates.net/nation={other}")
+    # Sort results alphabetically
+    sorted_results = sorted(missing.items(), key=lambda pair: pair[0])
+
+    if format_output:
+        for nation, task in sorted_results:
+            print(f"{nation}:")
+            for index, other in enumerate(task, start=1):
+                print(f"{index}. https://www.nationstates.net/nation={other}")
+    else:
+        for nation, task in sorted_results:
+            print(f"{nation}: " + ",".join(task))
 
 
 # Main function convention
