@@ -1,7 +1,8 @@
-"""Determines who you have not endorsed recently among the endorsers of a lead"""
+"""Determines missing crosses on a lead."""
 
 # Import types
-from typing import Iterable, List, Set, Tuple
+import typing as t
+from typing import Iterable, List, Set
 
 # Import core modules
 import logging
@@ -11,13 +12,8 @@ import time
 import nsapi
 import config
 
-# Set logging level
-level = logging.INFO
-logging.basicConfig(level=level)
-# Name logger
+# Make logger
 logger = logging.getLogger()
-# Change nsapi logging level
-nsapi.logger.setLevel(level=level)
 
 
 def uncrossed(
@@ -25,11 +21,13 @@ def uncrossed(
 ) -> Iterable[str]:
     """Returns a iterable of non-recently endorsed nations sourced from lead endorsements
     `duration` is the number of seconds to check back in the nation's endo happenings
+
+    NOT SUPER USEFUL
     """
 
     # Source endorsement list from lead
     logging.info("Retrieving lead endorser list")
-    nations: Set[str] = set(requester.nation(nation).shard("endorsements").split(","))
+    nations: Set[str] = set(requester.nation(lead).shard("endorsements").split(","))
 
     # Retrieve recent endo happenings in text form
     timestamp = int(time.time()) - duration
@@ -65,18 +63,64 @@ def uncrossed(
     return unendorsed
 
 
+def endorsements(
+    requester: nsapi.NSRequester, lead: str
+) -> t.Mapping[str, t.Iterable[str]]:
+    """Get the endorsements of everyone endorsing a lead."""
+
+    # Get all endorsers of the lead and the lead themself
+    endorsers = set(requester.nation(lead).endorsements()) | {lead}
+    # Return a mapping of all the endorsements
+    return {nation: requester.nation(nation).endorsements() for nation in endorsers}
+
+
+def missing_crosses(
+    reference: t.Mapping[str, t.Iterable[str]]
+) -> t.Mapping[str, t.Iterable[str]]:
+    """Produce the nations that have not been endorsed by each nation.
+
+    Cross references a mapping of the endorsements of each nation.
+    """
+
+    # We need to make sure that the iterable of endorsers is reusable
+    # Also make it a set so lookups are faster
+    data: t.Mapping[str, t.Set[str]] = {
+        nation: set(endorsers) for nation, endorsers in reference.items()
+    }
+
+    return {
+        # Note: We MUST use a list comprehension here, not a generator,
+        # because if we have a lazy iterable, it will use the `nation` closure
+        # which will just be the last one in the data
+        nation: [
+            other
+            for (other, existing) in data.items()
+            if other != nation and nation not in existing
+        ]
+        for nation in data.keys()
+    }
+
+
 def main() -> None:
     """Main function"""
+
+    nsapi.enable_logging()
 
     # Provide proper user agent to api requester
     requester = nsapi.NSRequester(config.userAgent)
 
     # Function arguments, could be connected to command line, etc
-    nation = "ne hcea"
-    lead = "panther"
+    lead = "isle_of_westland"
 
     # Actually run the bulk logic
-    print(uncrossed(requester, nation, lead, duration=3600 * 3))
+    # print(uncrossed(requester, nation, lead, duration=3600 * 3))
+
+    missing = missing_crosses(endorsements(requester, lead))
+
+    for nation, task in sorted(missing.items(), key=lambda pair: pair[0]):
+        print(f"{nation}:")
+        for index, other in enumerate(task, start=1):
+            print(f"{index}. https://www.nationstates.net/nation={other}")
 
 
 # Main function convention
